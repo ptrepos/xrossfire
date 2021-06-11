@@ -1,15 +1,12 @@
 #pragma once
 
-#if defined(_WIN32)
-#include <windows.h>
-#endif
-
 #include <errno.h>
 #include <xrossfire/base.h>
 
 typedef int xf_error_t;
 
-#define XF_ERROR	(1)
+#define XF_ERROR		(1)
+#define XF_ERROR_CANCEL	(2)
 
 XROSSFIRE_API xf_string_t *xf_error_type_xrossfire();
 XROSSFIRE_API xf_string_t *xf_error_type_win32();

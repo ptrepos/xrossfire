@@ -1,4 +1,5 @@
 #include <xrossfire/error.h>
+#include <xrossfire/string.h>
 
 struct xf_error_info
 {
@@ -72,9 +73,9 @@ XROSSFIRE_API xf_error_info_t *xf_error_info_get()
 }
 
 XROSSFIRE_API xf_error_t xf_error_set(
-	const char *type, 
+	xf_string_t *type, 
 	int code, 
-	const char *message,
+	xf_string_t *message,
 	xf_error_info_t *cause,
 	void *content)
 {
@@ -82,7 +83,7 @@ XROSSFIRE_API xf_error_t xf_error_set(
 	
 	self = (xf_error_info_t*)malloc(sizeof(xf_error_info_t));
 	if (self == NULL) {
-		return xf_error_info_set_info(&OUT_OF_MEMORY);
+		return xf_error_set_info(&OUT_OF_MEMORY);
 	}
 	
 	self->ref = 0;
@@ -92,11 +93,10 @@ XROSSFIRE_API xf_error_t xf_error_set(
 	self->cause = cause;
 	self->content = content;
 	
-	return xf_error_info_set_info(self);
+	return xf_error_set_info(self);
 }
 
-XROSSFIRE_API xf_error_t xf_error_set_info(
-	xf_error_info_t *info)
+XROSSFIRE_API xf_error_t xf_error_set_info(xf_error_info_t *info)
 {
 	xf_error_info_release(current);
 	current = xf_error_info_add_ref(info);
@@ -127,4 +127,14 @@ XROSSFIRE_API void *xf_error_info_get_content(xf_error_info_t *self)
 XROSSFIRE_API xf_error_info_t *xf_error_info_get_cause(xf_error_info_t *self)
 {
 	return self->cause;
+}
+
+XROSSFIRE_API xf_error_t xf_error_stdc(int error_num)
+{
+	return XF_ERROR;
+}
+
+XROSSFIRE_API xf_error_t xf_error_win32(int error_num)
+{
+	return XF_ERROR;
 }

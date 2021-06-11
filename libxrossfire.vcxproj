@@ -149,11 +149,14 @@
     <ClInclude Include="include\xrossfire\string.h" />
     <ClInclude Include="include\xrossfire\timeout.h" />
     <ClInclude Include="src\avltree.h" />
+    <ClInclude Include="src\win32\io_completion_port.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\async.c" />
     <ClCompile Include="src\error.c" />
     <ClCompile Include="src\timeout.c" />
+    <ClCompile Include="src\win32\io_completion_port.c" />
+    <ClCompile Include="src\win32\socket.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

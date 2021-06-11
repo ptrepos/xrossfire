@@ -1,13 +1,19 @@
 #include <xrossfire/async.h>
 #include <xrossfire/timeout.h>
 
+#if defined(_WIN32)
+#include "win32/io_completion_port.h"
+#endif
+
 #define XF_ASYNC_ASYNC	(1)
 
 struct xf_async {
 	int type;
 	xf_timeout_t timeout;
-	void *control;
-	xf_async_control_procedure_t control_proc;
+	xf_async_t *child_async;
+#if defined(_WIN32)
+	xf_io_command_t *command;
+#endif
 	union {
 		struct {
 			xf_async_completed_t completed;
@@ -62,40 +68,49 @@ XROSSFIRE_API void xf_async_release(xf_async_t *self)
 	free(self);
 }
 
-XROSSFIRE_API xf_error_t _xf_async_async_notify(xf_async_t *self, xf_error_t error)
+XROSSFIRE_API void _xf_async_async_notify(xf_async_t *self, xf_error_t error)
 {
 	self->u.async.completed(error, self->u.async.context);
-	
-	return 0;
 }
 
-XROSSFIRE_API xf_error_t xf_async_notify(xf_async_t *self, xf_error_t error)
+XROSSFIRE_API void xf_async_notify(xf_async_t *self, xf_error_t error)
 {
 	xf_error_t err;
 	
 	switch (self->type) {
 	case XF_ASYNC_ASYNC:
-		err = _xf_async_async_notify(self, error);
+		_xf_async_async_notify(self, error);
 		break;
 	default:
 		err = XF_ERROR;
 		break;
 	}
-	
-	return err;
 }
 
-XROSSFIRE_API xf_error_t xf_async_cancel(xf_async_t *self, int status)
+static void _cancel(xf_async_t *self)
+{
+	if (self->child_async != NULL) {
+		xf_async_cancel(self->child_async);
+	}
+
+#if defined(_WIN32)
+	if (self->command != NULL) {
+		xf_io_command_cancel(self->command);
+	}
+#endif
+}
+
+XROSSFIRE_API xf_error_t xf_async_cancel(xf_async_t *self)
 {
 	xf_error_t err;
 	
 	err = xf_timeout_cancel(&self->timeout);
 	if (err != 0)
 		goto _ERROR;
-	
-	err = self->control_proc(self->control, XF_ASYNC_CONTROL_METHOD_CANCEL, NULL);
-	if (err != 0)
-		goto _ERROR;
+
+	_cancel(self);
+
+	xf_async_notify(self, XF_ERROR_CANCEL);
 
 	return 0;
 _ERROR:
@@ -106,6 +121,15 @@ _ERROR:
 static void async_timeout(void *context)
 {
 	xf_async_t *async = (xf_async_t*)context;
-	
-	async->control_proc(async->control, XF_ASYNC_CONTROL_METHOD_CANCEL, NULL);
+
+	_cancel(async);
+
+	xf_async_notify(async, XF_ERROR_CANCEL);
 }
+
+#if defined(_WIN32)
+XROSSFIRE_PRIVATE void xf_async_set_command(xf_async_t *self, xf_io_command_t *command)
+{
+	self->command = command;
+}
+#endif

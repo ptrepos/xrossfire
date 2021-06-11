@@ -10,7 +10,7 @@ XROSSFIRE_API xf_error_t xf_server_socket_new(xf_string_t *ip_address, short por
 XROSSFIRE_API xf_error_t xf_server_socket_release(xf_server_socket_t *self);
 
 XROSSFIRE_API xf_error_t xf_server_socket_accept(
-	xf_tcp_listener_t *self, 
+	xf_server_socket_t *self,
 	xf_socket_t **socket, 
 	xf_async_t *async);
 XROSSFIRE_API xf_error_t xf_server_socket_set_data(xf_server_socket_t *self, void *data);
