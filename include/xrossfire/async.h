@@ -1,8 +1,9 @@
 #pragma once
 
+#include <xrossfire/base.h>
 #include <xrossfire/error.h>
 
-typedef void (xf_async_completed_t)(xf_error_t err, void *context);
+typedef void (*xf_async_completed_t)(xf_error_t err, void *context);
 
 typedef struct xf_async xf_async_t;
 

@@ -14,12 +14,12 @@ static xf_string_t TYPE_XROSSFIRE = XF_STRING_INITIALIZER("xrossfire");
 static xf_string_t TYPE_WIN32 = XF_STRING_INITIALIZER("win32");
 static xf_string_t TYPE_C = XF_STRING_INITIALIZER("c");
 
-XROSSFIRE_API xf_string_t *xf_error_type_xrossfire();
+XROSSFIRE_API xf_string_t *xf_error_type_xrossfire()
 {
 	return &TYPE_XROSSFIRE;
 }
 
-XROSSFIRE_API xf_string_t *xf_error_type_win32();
+XROSSFIRE_API xf_string_t *xf_error_type_win32()
 {
 	return &TYPE_WIN32;
 }
@@ -32,7 +32,7 @@ XROSSFIRE_API xf_string_t *xf_error_type_c()
 
 //--------------------------------------------
 // error_info
-static __Thread_local xf_error_info_t *current;
+static XF_THREADLOCAL xf_error_info_t *current;
 
 static xf_string_t MESSAGE_OUT_OF_MEMORY = XF_STRING_INITIALIZER("Out of memory.");
 
@@ -71,7 +71,7 @@ XROSSFIRE_API xf_error_info_t *xf_error_info_get()
 	return current;
 }
 
-XROSSFIRE_API xr_error_t xf_error_set(
+XROSSFIRE_API xf_error_t xf_error_set(
 	const char *type, 
 	int code, 
 	const char *message,
@@ -95,11 +95,13 @@ XROSSFIRE_API xr_error_t xf_error_set(
 	return xf_error_info_set_info(self);
 }
 
-XROSSFIRE_API xr_error_t xf_error_set_info(
+XROSSFIRE_API xf_error_t xf_error_set_info(
 	xf_error_info_t *info)
 {
 	xf_error_info_release(current);
 	current = xf_error_info_add_ref(info);
+
+	return XF_ERROR;
 }
 
 XROSSFIRE_API xf_string_t *xf_error_info_get_type(xf_error_info_t *self)

@@ -1,14 +1,18 @@
+#include <process.h>
 #include <xrossfire/base.h>
 #include <xrossfire/timeout.h>
 
 typedef struct xf_timeout_tree
 {
-	xf_timeout_node_t *root;
+	xf_timeout_t *root;
 } xf_timeout_tree_t;
+
+static int xf_timeout_compare(xf_timeout_handle_t a, xf_timeout_handle_t b);
 
 #define XF_AVLTREE(name)	xf_timeout_tree_ ## name
 #define XF_AVLTREE_T		xf_timeout_tree_t
 #define XF_AVLTREE_NODE_T	xf_timeout_t
+#define XF_AVLTREE_KEY_T	xf_timeout_handle_t
 #define XF_AVLTREE_COMPARE(a, b) xf_timeout_compare(a, b)
 
 #include "avltree.h"
@@ -19,25 +23,17 @@ static long long seq;
 
 static void timeout_loop(void *param);
 
-XF_PRIVATE xf_error_t xf_timeout_init()
+XROSSFIRE_PRIVATE xf_error_t xf_timeout_init()
 {
-	xf_error_t err;
-	
 	xf_monitor_init(&lock);
 		
 	seq = 0;
 	
-	err = xf_timeout_tree_init(&tree);
-	if (err != 0)
-		goto _ERROR;
+	xf_timeout_tree_init(&tree);
 	
-	err = xf_thread_start(timeout_loop, NULL);
-	if (err != 0)
-		goto _ERROR;
+	xf_thread_start(timeout_loop, NULL);
 
 	return 0;
-_ERROR:
-	return err;
 }
 
 static int xf_timeout_compare(xf_timeout_handle_t a, xf_timeout_handle_t b)
@@ -52,7 +48,7 @@ static int xf_timeout_compare(xf_timeout_handle_t a, xf_timeout_handle_t b)
 XROSSFIRE_API xf_error_t xf_timeout_schedule(
 	xf_timeout_t *self,
 	int timeout, 
-	xf_timeout_procedure_t *procedure, 
+	xf_timeout_procedure_t procedure, 
 	void *context)
 {
 	self->left = NULL;
@@ -66,7 +62,8 @@ XROSSFIRE_API xf_error_t xf_timeout_schedule(
 	
 	self->key.id = seq++;
 	
-	xf_timeout_tree_insert(tree, self);
+	bool inserted;
+	xf_timeout_tree_insert(&tree, self, /*out*/&inserted);
 	
 	xf_timeout_t *node = xf_timeout_tree_get_min(&tree);
 	if (node == self) {
@@ -76,8 +73,6 @@ XROSSFIRE_API xf_error_t xf_timeout_schedule(
 	xf_monitor_leave(&lock);
 	
 	return 0;
-_ERROR:
-	return err;
 }
 
 XROSSFIRE_API xf_error_t xf_timeout_cancel(xf_timeout_t *self)
@@ -85,9 +80,11 @@ XROSSFIRE_API xf_error_t xf_timeout_cancel(xf_timeout_t *self)
 	xf_monitor_enter(&lock);
 	
 	xf_timeout_t *node;
-	xf_timeout_tree_remove(&tree, handle->key, /*out*/&node);
+	xf_timeout_tree_remove(&tree, self->key, /*out*/&node);
 	
 	xf_monitor_leave(&lock);
+
+	return 0;
 }
 
 static void timeout_loop(void *param)
@@ -97,11 +94,11 @@ static void timeout_loop(void *param)
 	for (;;) {
 		long long ticks = xf_ticks();
 		
-		xf_timeout_t *node = xf_timeout_tree_get_min(&tree, &node);
+		xf_timeout_t *node = xf_timeout_tree_get_min(&tree);
 		if (node == NULL || ticks < node->key.timestamp) {
-			xf_monitor_wait(&lock, node == NULL ? 60000 : (node->key.timestamp - ticks));
+			xf_monitor_wait(&lock, node == NULL ? 60000 : (int)(node->key.timestamp - ticks));
 		} else {
-			node = xf_timeout_queue_get_min(&tree);
+			node = xf_timeout_tree_get_min(&tree);
 			while (node->key.timestamp <= ticks) {
 				xf_timeout_tree_remove_min(&tree);
 				

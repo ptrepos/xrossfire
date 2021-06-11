@@ -1,11 +1,7 @@
 #include <xrossfire/async.h>
 #include <xrossfire/timeout.h>
 
-typedef xf_timeout
-{
-	long long timestamp;
-	int id;
-} xf_timeout_t;
+#define XF_ASYNC_ASYNC	(1)
 
 struct xf_async {
 	int type;
@@ -14,21 +10,22 @@ struct xf_async {
 	xf_async_control_procedure_t control_proc;
 	union {
 		struct {
-			xf_async_procedure_t completed;
+			xf_async_completed_t completed;
 			void *context;
 		} async;
-		struct {
-			;
-		} wait;
+		//struct {
+		//	;
+		//} wait;
 	} u;
 };
 
 static void async_timeout(void *context);
 
-XROSSFIRE_API xf_error_t xf_async_new_1(int timeout, xf_async_procedure_t completed, void *context, xf_async_t **self)
+XROSSFIRE_API xf_error_t xf_async_new_2(int timeout, xf_async_completed_t completed, void *context, xf_async_t **self)
 {
 	xf_error_t err;
 	xf_async_t *obj = NULL;
+	bool timeout_setup = false;
 	
 	obj = (xf_async_t*)malloc(sizeof(xf_async_t));
 	if (obj == NULL) {
@@ -39,35 +36,35 @@ XROSSFIRE_API xf_error_t xf_async_new_1(int timeout, xf_async_procedure_t comple
 	obj->type = XF_ASYNC_ASYNC;
 	obj->u.async.completed = completed;
 	obj->u.async.context = context;
-	obj->timeout = xf_timeout_invalid();
 	
 	if (timeout > 0) {
-		err = xf_timeout_schedule(timeout, async_timeout, context, &obj->timeout);
+		err = xf_timeout_schedule(&obj->timeout, timeout, async_timeout, context);
 		if (err != 0)
 			goto _ERROR;
+		timeout_setup = true;
 	}
 	
 	*self = obj;
 	
 	return 0;
 _ERROR:
-	if (obj != NULL) {
-		xf_timeout_cancel(obj->timeout);
+	if (obj != NULL && timeout_setup) {
+		xf_timeout_cancel(&obj->timeout);
 	}
 	free(obj);
 	
 	return err;
 }
 
-XROSSFIRE_API xf_error_t xf_async_release(xf_async_t *self)
+XROSSFIRE_API void xf_async_release(xf_async_t *self)
 {
-	xf_timeout_cancel(self->timeout);
+	xf_timeout_cancel(&self->timeout);
 	free(self);
 }
 
 XROSSFIRE_API xf_error_t _xf_async_async_notify(xf_async_t *self, xf_error_t error)
 {
-	self->u.async.competed(error, obj->u.async.context);
+	self->u.async.completed(error, self->u.async.context);
 	
 	return 0;
 }
@@ -81,7 +78,7 @@ XROSSFIRE_API xf_error_t xf_async_notify(xf_async_t *self, xf_error_t error)
 		err = _xf_async_async_notify(self, error);
 		break;
 	default:
-		err = XF_E_NOT_SUPPORTED;
+		err = XF_ERROR;
 		break;
 	}
 	
@@ -92,7 +89,7 @@ XROSSFIRE_API xf_error_t xf_async_cancel(xf_async_t *self, int status)
 {
 	xf_error_t err;
 	
-	err = xf_timeout_cancel(self->timeout);
+	err = xf_timeout_cancel(&self->timeout);
 	if (err != 0)
 		goto _ERROR;
 	
@@ -110,5 +107,5 @@ static void async_timeout(void *context)
 {
 	xf_async_t *async = (xf_async_t*)context;
 	
-	self->control_proc(self->control, XF_ASYNC_CONTROL_METHOD_CANCEL, NULL);
+	async->control_proc(async->control, XF_ASYNC_CONTROL_METHOD_CANCEL, NULL);
 }

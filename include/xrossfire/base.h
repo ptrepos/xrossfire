@@ -1,8 +1,78 @@
 #pragma once
 
 #if defined(_WIN32)
+#include <windows.h>
+#endif
 
-long long xf_ticks()
+#include <stdbool.h>
+
+#if defined(__cplusplus)
+#define XF_EXTERN_C			extern "C" {
+#define XF_END_EXTERN_C		}
+#else
+#define XF_EXTERN_C
+#define XF_END_EXTERN_C	
+#endif
+
+#if !defined(_countof)
+#define _countof(array)	(sizeof(array) / sizeof(array[0]))
+#endif
+
+#ifndef XF_THREADLOCAL
+#	if defined(_WIN32) && defined(_MSC_VER)
+#		define XF_THREADLOCAL	__declspec(thread)
+#	else
+#		error "Not supported architecture"
+#	endif
+#endif
+
+#ifndef XROSSFIRE_API_EXPORT
+#	if defined(_WIN32) && defined(_MSC_VER)
+#		define XROSSFIRE_API_EXPORT	__declspec(dllexport)
+#	elif defined(_WIN32) && (__GNUC__ >= 4 || defined(__clang__))
+#		define XROSSFIRE_API_EXPORT	__attribute__ ((dllexport))
+#	elif __GNUC__ >= 4 || defined(__clang__)
+#		define XROSSFIRE_API_EXPORT
+#	else
+#		error "Not supported architecture"
+#	endif
+#endif
+
+#ifndef XROSSFIRE_API_IMPORT
+#	if defined(_WIN32) && defined(_MSC_VER)
+#		define XROSSFIRE_API_IMPORT	__declspec(dllimport)
+#	elif defined(_WIN32) && (__GNUC__ >= 4 || defined(__clang__))
+#		define XROSSFIRE_API_IMPORT	__attribute__ ((dllimport))
+#	elif __GNUC__ >= 4 || defined(__clang__)
+#		define XROSSFIRE_API_IMPORT
+#	else
+#		error "Not supported architecture"
+#	endif
+#endif
+
+#ifndef XROSSFIRE_PRIVATE
+#	if defined(_MSC_VER)
+#		define XROSSFIRE_PRIVATE	
+#	elif __GNUC__ >= 4 || defined(__clang__)
+#		define XROSSFIRE_PRIVATE	__attribute__ ((visibility ("hidden")))
+#	else
+#		define XROSSFIRE_PRIVATE	
+#	endif
+#endif
+
+#define SHARED_LIB_EXTENSION    ".dll"
+
+#if defined (_LIBXROSSFIRE_DLL)
+#define XROSSFIRE_API	XROSSFIRE_API_EXPORT
+#else
+#define XROSSFIRE_API	XROSSFIRE_API_IMPORT
+#endif
+
+XF_EXTERN_C
+
+#if defined(_WIN32)
+
+static long long xf_ticks()
 {
 	return (long long)GetTickCount64();
 }
@@ -44,14 +114,14 @@ static void xf_monitor_wait(xf_monitor_t *self, int timeout)
 	SleepConditionVariableCS(&self->cond_var, &self->cs, (DWORD)timeout);
 }
 
-static void xf_monitor_notify(xf_monitor_t *self, int timeout)
+static void xf_monitor_notify(xf_monitor_t *self)
 {
-	WakeConditionVariableCS(&self->cond_var);
+	WakeConditionVariable(&self->cond_var);
 }
 
-static void xf_monitor_notify_all(xf_monitor_t *self, int timeout)
+static void xf_monitor_notify_all(xf_monitor_t *self)
 {
-	WakeAllConditionVariableCS(&self->cond_var);
+	WakeAllConditionVariable(&self->cond_var);
 }
 
 #define xf_thread_start(procedure, context) _beginthread(procedure, 0, context)
@@ -84,4 +154,6 @@ typedef struct xf_string {
 	char buf[];
 } xf_string_t;
 
-#include XF_STRING_INITIALIZER(text) { -1, sizeof(text), text }
+#define XF_STRING_INITIALIZER(text) { -1, sizeof(text), text }
+
+XF_END_EXTERN_C

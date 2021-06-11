@@ -8,7 +8,7 @@ static int XF_AVLTREE(max_)(int a, int b)
 	return a < b ? b : a;
 }
 
-static int XF_AVLTREE(refresh_)(XF_AVLTREE_NODE_T *node)
+static void XF_AVLTREE(refresh_)(XF_AVLTREE_NODE_T *node)
 {
 	node->height = XF_AVLTREE(max_)(XF_AVLTREE(get_height_)(node->left), XF_AVLTREE(get_height_)(node->right)) + 1;
 }
@@ -105,7 +105,7 @@ static XF_AVLTREE_NODE_T *XF_AVLTREE(insert_node_)(XF_AVLTREE_T *self, XF_AVLTRE
 		return new_node;
 	}
 	
-	int ret = self->compare(new_node, node);
+	int ret = XF_AVLTREE_COMPARE(new_node->key, node->key);
 	if(ret < 0) {
 		XF_AVLTREE_NODE_T *left = XF_AVLTREE(insert_node_)(self, node->left, new_node, /*out*/inserted, /*out*/changed);
 		if (*changed) {
@@ -172,7 +172,7 @@ static XF_AVLTREE_NODE_T *XF_AVLTREE(remove_node_)(XF_AVLTREE_T *self, XF_AVLTRE
 		return NULL;
 	}
 	
-	int ret = self->compare(del_node, node);
+	int ret = XF_AVLTREE_COMPARE(del_node->key, node->key);
 	if(ret < 0) {
 		node->left = XF_AVLTREE(remove_node_)(self, node->left, del_node, /*out*/removed);
 		
@@ -335,19 +335,19 @@ static bool XF_AVLTREE(balanced_)(XF_AVLTREE_NODE_T *node)
 	return XF_AVLTREE(balanced_)(node->left) && XF_AVLTREE(balanced_)(node->right);
 }
 
-static bool XF_AVLTREE(check_)(XF_AVLTREE_NODE_T *node, avltree_compare_node_t compare)
+static bool XF_AVLTREE(check_)(XF_AVLTREE_NODE_T *node)
 {
 	if (node == NULL)
 		return true;
 	
 	if (node->left != NULL) {
-		if (!(compare(node->left, node) < 0)) {
+		if (!(XF_AVLTREE_COMPARE(node->left->key, node->key) < 0)) {
 			return false;
 		}
 	}
 	
 	if (node->right != NULL) {
-		if (!(compare(node, node->right) <= 0)) {
+		if (!(XF_AVLTREE_COMPARE(node->key, node->right->key) <= 0)) {
 			return false;
 		}
 	}
@@ -356,38 +356,10 @@ static bool XF_AVLTREE(check_)(XF_AVLTREE_NODE_T *node, avltree_compare_node_t c
 		return false;
 	}
 	
-	return XF_AVLTREE(check_)(node->left, compare) && XF_AVLTREE(check_)(node->right, compare);
+	return XF_AVLTREE(check_)(node->left) && XF_AVLTREE(check_)(node->right);
 }
 
-static XF_AVLTREE_NODE_T *XF_AVLTREE(conditional_pop_min_sub_)(
-		XF_AVLTREE_NODE_T *node,
-		bool (*condition)(XF_AVLTREE_NODE_T *node, void *context),
-		void *context,
-		/*out*/XF_AVLTREE_NODE_T **min, 
-		/*out*/bool *changed)
-{
-	if (node->left == NULL) {
-		if (condition(node, context)) {
-			*min = node;
-			*changed = true;
-			return node->right;
-		} else {
-			*min = NULL;
-			*changed = false;
-			return node;
-		}
-	} else {
-		XF_AVLTREE_NODE_T *left = XF_AVLTREE(conditional_pop_min_sub_)(node->left, condition, context, /*out*/min, /*out*/changed);
-		if (*changed) {
-			node->left = left;
-			return XF_AVLTREE(balance_right_)(node, /*out*/changed);
-		}
-		
-		return node;
-	}
-}
-
-void XF_AVLTREE(init)(XF_AVLTREE_T *self, avltree_compare_node_t compare)
+void XF_AVLTREE(init)(XF_AVLTREE_T *self)
 {
 	self->root = NULL;
 }
@@ -401,8 +373,6 @@ void XF_AVLTREE(insert)(XF_AVLTREE_T *self, XF_AVLTREE_NODE_T *node, /*out*/bool
 
 void XF_AVLTREE(remove)(XF_AVLTREE_T *self, XF_AVLTREE_KEY_T key, /*out*/XF_AVLTREE_NODE_T **removed)
 {
-	bool changed;
-	
 	self->root = XF_AVLTREE(remove_key_)(self, self->root, key, /*out*/removed);
 }
 
@@ -428,7 +398,7 @@ void XF_AVLTREE(remove_max)(XF_AVLTREE_T *self)
 	self->root = XF_AVLTREE(remove_max_)(self->root, /*out*/&changed);
 }
 
-void XF_AVLTREE(pop_min)((XF_AVLTREE_T *self, /*out*/XF_AVLTREE_NODE_T **min)
+void XF_AVLTREE(pop_min)(XF_AVLTREE_T *self, /*out*/XF_AVLTREE_NODE_T **min)
 {
 	bool changed;
 	if (self->root == NULL) {
@@ -448,16 +418,6 @@ void XF_AVLTREE(pop_max)(XF_AVLTREE_T *self, /*out*/XF_AVLTREE_NODE_T **max)
 	self->root = XF_AVLTREE(pop_max_)(self->root, /*out*/max, &changed);
 }
 
-void XF_AVLTREE(conditional_pop_min)(
-		XF_AVLTREE_T *self,
-		bool (*condition)(XF_AVLTREE_NODE_T *node, void *context),
-		void *context,
-		/*out*/XF_AVLTREE_NODE_T **popped)
-{
-	bool changed;
-	self->root = XF_AVLTREE(conditional_pop_min_)(self->root, condition, context, /*out*/popped, &changed);
-}
-
 int XF_AVLTREE(count)(XF_AVLTREE_T *self)
 {
 	return XF_AVLTREE(count_)(self->root);
@@ -475,5 +435,5 @@ bool XF_AVLTREE(balanced)(XF_AVLTREE_T *self)
 
 bool XF_AVLTREE(check)(XF_AVLTREE_T *self)
 {
-	return XF_AVLTREE(check_)(self->root, self->compare);
+	return XF_AVLTREE(check_)(self->root);
 }
