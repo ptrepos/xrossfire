@@ -35,7 +35,7 @@ XROSSFIRE_API xf_error_t xf_async_new_2(int timeout, xf_async_completed_t comple
 	
 	obj = (xf_async_t*)malloc(sizeof(xf_async_t));
 	if (obj == NULL) {
-		err = xf_error_stdc(errno);
+		err = xf_error_libc(errno);
 		goto _ERROR;
 	}
 	

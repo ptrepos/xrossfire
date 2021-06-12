@@ -129,12 +129,12 @@ XROSSFIRE_API xf_error_info_t *xf_error_info_get_cause(xf_error_info_t *self)
 	return self->cause;
 }
 
-XROSSFIRE_API xf_error_t xf_error_stdc(int error_num)
+XROSSFIRE_API xf_error_t xf_error_libc(int error_num)
 {
 	return XF_ERROR;
 }
 
-XROSSFIRE_API xf_error_t xf_error_win32(int error_num)
+XROSSFIRE_API xf_error_t xf_error_windows(int error_num)
 {
 	return XF_ERROR;
 }

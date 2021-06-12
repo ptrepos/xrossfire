@@ -32,5 +32,5 @@ XROSSFIRE_API xf_error_t xf_error_set(
 	xf_error_info_t *cause,
 	void *content);
 XROSSFIRE_API xf_error_t xf_error_set_info(xf_error_info_t *info);
-XROSSFIRE_API xf_error_t xf_error_win32(DWORD error);
-XROSSFIRE_API xf_error_t xf_error_stdc(int error);
+XROSSFIRE_API xf_error_t xf_error_windows(DWORD error);
+XROSSFIRE_API xf_error_t xf_error_libc(int error);
