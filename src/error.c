@@ -11,9 +11,9 @@ struct xf_error_info
 	xf_error_info_t *cause;
 };
 
-static xf_string_t TYPE_XROSSFIRE = XF_STRING_INITIALIZER("xrossfire");
-static xf_string_t TYPE_WIN32 = XF_STRING_INITIALIZER("win32");
-static xf_string_t TYPE_C = XF_STRING_INITIALIZER("c");
+static xf_string_t TYPE_XROSSFIRE = XF_STRING_INITIALIZER(_T("xrossfire"));
+static xf_string_t TYPE_WIN32 = XF_STRING_INITIALIZER(_T("win32"));
+static xf_string_t TYPE_C = XF_STRING_INITIALIZER(_T("c"));
 
 XROSSFIRE_API xf_string_t *xf_error_type_xrossfire()
 {
@@ -35,7 +35,7 @@ XROSSFIRE_API xf_string_t *xf_error_type_c()
 // error_info
 static XF_THREADLOCAL xf_error_info_t *current;
 
-static xf_string_t MESSAGE_OUT_OF_MEMORY = XF_STRING_INITIALIZER("Out of memory.");
+static xf_string_t MESSAGE_OUT_OF_MEMORY = XF_STRING_INITIALIZER(_T("Out of memory."));
 
 static xf_error_info_t OUT_OF_MEMORY = {
 	-1,

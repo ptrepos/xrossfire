@@ -153,12 +153,22 @@ long long xf_ticks()
 #error "Not supported architecture."
 #endif
 
+#if defined(_WIN32)
+typedef WCHAR	xf_char_t;
+#elif defined(__linux__) || define(__FreeBSD__)
+typedef char	xf_char_t;
+#endif
+
 typedef struct xf_string {
 	xf_atomic_t ref;
 	int length;
-	char buf[];
-} xf_string_t;
+	xf_char_t buf[];
+} const xf_string_t;
 
-#define XF_STRING_INITIALIZER(text) { -1, sizeof(text), text }
+#define XF_STRING_INITIALIZER(text)		{ -1, _countof(text), text }
+
+#if defined(_WIN32)
+#define _T(text)						L ## text
+#endif
 
 XF_END_EXTERN_C

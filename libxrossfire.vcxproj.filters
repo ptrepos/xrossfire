@@ -65,9 +65,6 @@
     <ClCompile Include="src\strbuf.c">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\unicode.c">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="src\poll.c">
       <Filter>ソース ファイル</Filter>
     </ClCompile>

@@ -24,7 +24,6 @@ typedef struct xf_io_command
 	int io_type;
 	union {
 		struct {
-			xf_strbuf16_t hostname;
 			PADDRINFOEXW addrs;
 			xf_socket_t *self;
 		} connect;

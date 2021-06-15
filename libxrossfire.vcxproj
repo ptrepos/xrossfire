@@ -159,7 +159,6 @@
     <ClCompile Include="src\poll.c" />
     <ClCompile Include="src\strbuf.c" />
     <ClCompile Include="src\timeout.c" />
-    <ClCompile Include="src\unicode.c" />
     <ClCompile Include="src\win32\io_completion_port.c" />
     <ClCompile Include="src\win32\socket.c" />
   </ItemGroup>

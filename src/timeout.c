@@ -27,7 +27,7 @@ XROSSFIRE_PRIVATE xf_error_t xf_timeout_init()
 {
 	seq = 0;
 	xf_timeout_tree_init(&tree);
-	xf_polling_add(xf_timeout_poll_procedure);
+	xf_poll_add(xf_timeout_poll_procedure);
 
 	return 0;
 }
@@ -54,7 +54,7 @@ XROSSFIRE_API xf_error_t xf_timeout_schedule(
 	self->context = context;
 	self->key.timestamp = xf_ticks() + timeout;
 
-	xf_polling_enter();
+	xf_poll_enter();
 	
 	self->key.id = seq++;
 	
@@ -63,22 +63,22 @@ XROSSFIRE_API xf_error_t xf_timeout_schedule(
 	
 	xf_timeout_t *node = xf_timeout_tree_get_min(&tree);
 	if (node == self) {
-		xf_polling_wakeup();
+		xf_poll_wakeup();
 	}
 	
-	xf_polling_leave();
+	xf_poll_leave();
 	
 	return 0;
 }
 
 XROSSFIRE_API xf_error_t xf_timeout_cancel(xf_timeout_t *self)
 {
-	xf_polling_enter();
+	xf_poll_enter();
 	
 	xf_timeout_t *node;
 	xf_timeout_tree_remove(&tree, self->key, /*out*/&node);
 	
-	xf_polling_leave();
+	xf_poll_leave();
 
 	return 0;
 }
@@ -115,11 +115,11 @@ static void xf_timeout_poll_procedure(int method_id, void *args)
 			while (node->key.timestamp <= ticks) {
 				xf_timeout_tree_remove_min(&tree);
 				
-				xf_polling_leave();
+				xf_poll_leave();
 				
 				node->procedure(node->context);
 				
-				xf_polling_enter();
+				xf_poll_enter();
 				
 				node = xf_timeout_tree_get_min(&tree);
 			}

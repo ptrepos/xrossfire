@@ -1,4 +1,5 @@
 #include <xrossfire/net.h>
+#include <xrossfire/string.h>
 #include "io_completion_port.h"
 
 typedef struct xf_socket
@@ -13,12 +14,10 @@ static void xf_io_command_free(xf_io_command_t *command)
 
     switch (command->io_type) {
     case XF_IO_SOCKET_CONNECT_PHASE1:
-        xf_strbuf16_destroy(&command->context.connect.hostname);
         FreeAddrInfoExW(command->context.connect.addrs);
         closesocket((SOCKET)command->handle);
         break;
     case XF_IO_SOCKET_CONNECT_PHASE2:
-        xf_strbuf16_destroy(&command->context.connect.hostname);
         FreeAddrInfoExW(command->context.connect.addrs);
         closesocket((SOCKET)command->handle);
         break;
@@ -63,16 +62,11 @@ XROSSFIRE_API xf_error_t xf_socket_connect(
 
     command->io_type = XF_IO_SOCKET_CONNECT_PHASE1;
     command->async = async;
-    xf_strbuf16_init(&command->context.connect.hostname);
 	command->context.connect.self = self;
 
 	xf_async_set_command(async, command);
 
-    err = xf_string_to_unicode(hostname, &command->context.connect.hostname);
-    if (err != 0)
-        goto _ERROR;
-
-    INT ierr = GetAddrInfoExW(xf_strbuf16_to_cstr(&command->context.connect.hostname),
+    INT ierr = GetAddrInfoExW(xf_string_to_cstr(hostname),
         NULL,
         NS_DNS,
         NULL,
