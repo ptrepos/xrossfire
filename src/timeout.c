@@ -1,6 +1,7 @@
 #include <process.h>
 #include <xrossfire/base.h>
 #include <xrossfire/timeout.h>
+#include <xrossfire/poll.h>
 
 typedef struct xf_timeout_tree
 {
@@ -17,21 +18,16 @@ static int xf_timeout_compare(xf_timeout_handle_t a, xf_timeout_handle_t b);
 
 #include "avltree.h"
 
-static xf_monitor_t g_lock;
 static xf_timeout_tree_t tree;
 static long long seq;
 
-static void timeout_loop(void *param);
+static void xf_timeout_poll_procedure(int method_id, void *args);
 
 XROSSFIRE_PRIVATE xf_error_t xf_timeout_init()
 {
-	xf_monitor_init(&g_lock);
-		
 	seq = 0;
-	
 	xf_timeout_tree_init(&tree);
-	
-	xf_thread_start(timeout_loop, NULL);
+	xf_polling_add(xf_timeout_poll_procedure);
 
 	return 0;
 }
@@ -58,7 +54,7 @@ XROSSFIRE_API xf_error_t xf_timeout_schedule(
 	self->context = context;
 	self->key.timestamp = xf_ticks() + timeout;
 
-	xf_monitor_enter(&g_lock);
+	xf_polling_enter();
 	
 	self->key.id = seq++;
 	
@@ -67,49 +63,70 @@ XROSSFIRE_API xf_error_t xf_timeout_schedule(
 	
 	xf_timeout_t *node = xf_timeout_tree_get_min(&tree);
 	if (node == self) {
-		xf_monitor_notify(&g_lock);
+		xf_polling_wakeup();
 	}
 	
-	xf_monitor_leave(&g_lock);
+	xf_polling_leave();
 	
 	return 0;
 }
 
 XROSSFIRE_API xf_error_t xf_timeout_cancel(xf_timeout_t *self)
 {
-	xf_monitor_enter(&g_lock);
+	xf_polling_enter();
 	
 	xf_timeout_t *node;
 	xf_timeout_tree_remove(&tree, self->key, /*out*/&node);
 	
-	xf_monitor_leave(&g_lock);
+	xf_polling_leave();
 
 	return 0;
 }
 
-static void timeout_loop(void *param)
+static void xf_timeout_poll_procedure(int method_id, void *args)
 {
-	xf_monitor_enter(&g_lock);
-
-	for (;;) {
-		long long ticks = xf_ticks();
-		
-		xf_timeout_t *node = xf_timeout_tree_get_min(&tree);
-		if (node == NULL || ticks < node->key.timestamp) {
-			xf_monitor_wait(&g_lock, node == NULL ? 60000 : (int)(node->key.timestamp - ticks));
-		} else {
+	switch (method_id) {
+	case XF_POLLING_GET_WAIT_TIMEOUT: 
+		{
+			Xf_poll_get_wait_timeout_args_t *a = (Xf_poll_get_wait_timeout_args_t *)args;
+			
+			long long timeout;
+			xf_timeout_t *node;
+			
 			node = xf_timeout_tree_get_min(&tree);
+			if (node == NULL) {
+				timeout = 300 * 1000;
+			} else {
+				timeout = node->key.timestamp - xf_ticks();
+			}
+			
+			a->timeout = timeout;
+			
+			return;
+		}
+	case XF_POLLING_PROCESS:
+		{
+			xf_poll_process_args_t *a = (xf_poll_process_args_t *)args;
+			
+			long long ticks = xf_ticks();
+				
+			xf_timeout_t *node = xf_timeout_tree_get_min(&tree);
+			
 			while (node->key.timestamp <= ticks) {
 				xf_timeout_tree_remove_min(&tree);
 				
-				xf_monitor_leave(&g_lock);
+				xf_polling_leave();
 				
 				node->procedure(node->context);
 				
-				xf_monitor_enter(&g_lock);
+				xf_polling_enter();
+				
+				node = xf_timeout_tree_get_min(&tree);
 			}
+			
+			return;
 		}
+	default:
+		xf_abort();
 	}
-	
-	xf_monitor_leave(&g_lock);
 }

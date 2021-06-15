@@ -1,5 +1,6 @@
 #pragma once
 
+#include <uchar.h>
 #include <xrossfire/base.h>
 #include <xrossfire/error.h>
 

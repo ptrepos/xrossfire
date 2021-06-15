@@ -126,7 +126,7 @@ static void io_compiletion_main(PVOID pv)
             command = (xf_io_command_t*)overlapped;
             switch (command->io_type)
             {
-            case XF_IO_SOCKET_CONNECT:
+            case XF_IO_SOCKET_CONNECT_PHASE2:
                 xf_io_completed_socket_connect_phase2(derr, command);
                 break;
             case XF_IO_SOCKET_DISCONNECT:

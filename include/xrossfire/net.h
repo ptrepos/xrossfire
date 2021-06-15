@@ -23,6 +23,7 @@ XROSSFIRE_API xf_error_t xf_socket_connect(
 	xf_socket_t *self,
 	xf_string_t *hostname,
 	int port,
+	int options,
 	xf_async_t *async);
 XROSSFIRE_API xf_error_t xf_socket_disconnect(
 	xf_socket_t *self,

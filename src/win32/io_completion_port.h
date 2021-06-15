@@ -3,6 +3,7 @@
 #include <xrossfire/error.h>
 #include <xrossfire/async.h>
 #include <xrossfire/net.h>
+#include <xrossfire/strbuf.h>
 
 #define XF_IO_TYPE_HANDLE	1
 #define XF_IO_TYPE_EXIT		2
@@ -24,7 +25,7 @@ typedef struct xf_io_command
 	union {
 		struct {
 			xf_strbuf16_t hostname;
-			PADDRINFOEX addrs;
+			PADDRINFOEXW addrs;
 			xf_socket_t *self;
 		} connect;
 		struct {

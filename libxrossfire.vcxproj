@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -146,6 +146,8 @@
     <ClInclude Include="include\xrossfire\base.h" />
     <ClInclude Include="include\xrossfire\error.h" />
     <ClInclude Include="include\xrossfire\net.h" />
+    <ClInclude Include="include\xrossfire\poll.h" />
+    <ClInclude Include="include\xrossfire\strbuf.h" />
     <ClInclude Include="include\xrossfire\string.h" />
     <ClInclude Include="include\xrossfire\timeout.h" />
     <ClInclude Include="src\avltree.h" />
@@ -154,7 +156,10 @@
   <ItemGroup>
     <ClCompile Include="src\async.c" />
     <ClCompile Include="src\error.c" />
+    <ClCompile Include="src\poll.c" />
+    <ClCompile Include="src\strbuf.c" />
     <ClCompile Include="src\timeout.c" />
+    <ClCompile Include="src\unicode.c" />
     <ClCompile Include="src\win32\io_completion_port.c" />
     <ClCompile Include="src\win32\socket.c" />
   </ItemGroup>

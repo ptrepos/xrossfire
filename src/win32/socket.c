@@ -14,13 +14,13 @@ static void xf_io_command_free(xf_io_command_t *command)
     switch (command->io_type) {
     case XF_IO_SOCKET_CONNECT_PHASE1:
         xf_strbuf16_destroy(&command->context.connect.hostname);
-        FreeAddrInfo(&command->context.connect.addrs);
-        closesocket(command->handle);
+        FreeAddrInfoExW(command->context.connect.addrs);
+        closesocket((SOCKET)command->handle);
         break;
     case XF_IO_SOCKET_CONNECT_PHASE2:
         xf_strbuf16_destroy(&command->context.connect.hostname);
-        FreeAddrInfo(&command->context.connect.addrs);
-        closesocket(command->handle);
+        FreeAddrInfoExW(command->context.connect.addrs);
+        closesocket((SOCKET)command->handle);
         break;
     }
 
@@ -121,13 +121,12 @@ static VOID WINAPI connect_phase1(
 
 static xf_error_t socket_connect_async(
 	xf_io_command_t *command,
-	ADDRINFOA *addr)
+	ADDRINFOEXW *addr)
 {
 	xf_error_t err;
 	int iret;
 	BOOL bret;
 	SOCKET handle = INVALID_SOCKET;
-	xf_io_command_t *command = NULL;
 
 	handle = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
 	if (handle == INVALID_SOCKET) {
@@ -199,8 +198,8 @@ XROSSFIRE_PRIVATE void xf_io_completed_socket_connect_phase2(DWORD error, xf_io_
         return;
     }
 
-    command->context.connect.self->handle = command->handle;
-    command->handle = INVALID_SOCKET;
+    command->context.connect.self->handle = (SOCKET)command->handle;
+    command->handle = (HANDLE)INVALID_SOCKET;
 
     xf_async_notify(command->async, 0);
 
@@ -235,7 +234,7 @@ XROSSFIRE_API xf_error_t xf_socket_disconnect(
     }
 
     command = (xf_io_command_t*)malloc(sizeof(xf_io_command_t));
-    if (command != NULL) {
+    if (command == NULL) {
         err = xf_error_libc(errno);
         goto _ERROR;
     }
