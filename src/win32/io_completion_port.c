@@ -160,5 +160,9 @@ XROSSFIRE_PRIVATE void xf_io_async_clear(xf_io_async_t *self)
         FreeAddrInfoExW(self->context.connect.addrs);
         closesocket((SOCKET)self->handle);
         break;
+    case XF_IO_SERVER_SOCKET_ACCEPT:
+    	free(self->context.accept.buf);
+        closesocket(self->context.accept.accepted_socket);
+        break;
     }
 }

@@ -19,6 +19,10 @@ XROSSFIRE_API xf_error_t xf_server_socket_get_data(xf_server_socket_t *self, voi
 XROSSFIRE_API xf_error_t xf_socket_new(xf_socket_t **self);
 XROSSFIRE_API xf_error_t xf_socket_release(xf_socket_t *self);
 
+#if defined(_WIN32)
+XROSSFIRE_API xf_error_t xf_socket_new_with_handle(SOCKET handle, xf_socket_t **self);
+#endif
+
 XROSSFIRE_API void xf_socket_connect(
 	xf_socket_t *self,
 	xf_string_t *hostname,

@@ -15,6 +15,28 @@ static xf_error_t socket_connect_async(
     xf_io_async_t *command,
     ADDRINFOEXW *addr);
 
+XROSSFIRE_API xf_error_t xf_socket_new_with_handle(SOCKET handle, xf_socket_t **self)
+{
+	xf_error_t err;
+	xf_socket_t *obj = NULL;
+	
+	obj = (xf_socket_t*)malloc(sizeof(xf_socket_t));
+	if (obj == NULL) {
+		err = xf_error_libc(errno);
+		goto _ERROR;
+	}
+	
+	obj->handle = handle;
+	
+	*self = obj;
+	
+	return 0;
+_ERROR:
+    free(obj);
+	
+	return err;
+}
+
 XROSSFIRE_API void xf_socket_connect(
     xf_socket_t *self,
     xf_string_t *hostname,
