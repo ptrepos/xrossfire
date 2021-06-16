@@ -31,6 +31,14 @@
 #	endif
 #endif
 
+#ifndef XF_NORETURN
+#	if defined(_WIN32) && defined(_MSC_VER)
+#		define XF_NORETURN	__declspec(noreturn)
+#	else
+#		error "Not supported architecture"
+#	endif
+#endif
+
 #ifndef XROSSFIRE_API_EXPORT
 #	if defined(_WIN32) && defined(_MSC_VER)
 #		define XROSSFIRE_API_EXPORT	__declspec(dllexport)
@@ -143,9 +151,9 @@ long long xf_ticks()
 {
 	struct timeval val;
 	struct timezone tz;
-	
+
 	gettimeofday(&val, &tz);
-	
+
 	return (long long)val.tv_sec * 1000 + (long long)val.tv_usec / 1000;
 }
 
@@ -170,5 +178,10 @@ typedef struct xf_string {
 #if defined(_WIN32)
 #define _T(text)						L ## text
 #endif
+
+XROSSFIRE_API void __xf_debug_abort(const char *message);
+
+#define xf_assert(expression)	if (expression) __xf_debug_abort(#expression)
+#define xf_abort(expression)	__xf_debug_abort("Abnormal terminate.")
 
 XF_END_EXTERN_C
