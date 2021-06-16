@@ -160,6 +160,7 @@
     <ClCompile Include="src\strbuf.c" />
     <ClCompile Include="src\timeout.c" />
     <ClCompile Include="src\win32\io_completion_port.c" />
+    <ClCompile Include="src\win32\server_socket.c" />
     <ClCompile Include="src\win32\socket.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

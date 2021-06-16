@@ -6,18 +6,21 @@
 typedef struct xf_socket	xf_socket_t;
 typedef struct xf_server_socket	xf_server_socket_t;
 
-XROSSFIRE_API xf_error_t xf_server_socket_new(xf_string_t *ip_address, short port, xf_server_socket_t **self);
-XROSSFIRE_API xf_error_t xf_server_socket_release(xf_server_socket_t *self);
+#define XF_IPV4	(1)
+#define XF_IPV6	(2)
+
+XROSSFIRE_API xf_error_t xf_server_socket_new(xf_string_t *ip_address, int port, xf_server_socket_t **self);
+XROSSFIRE_API void xf_server_socket_release(xf_server_socket_t *self);
 
 XROSSFIRE_API void xf_server_socket_accept(
 	xf_server_socket_t *self,
 	xf_socket_t **socket, 
 	xf_async_t *async);
-XROSSFIRE_API xf_error_t xf_server_socket_set_data(xf_server_socket_t *self, void *data);
-XROSSFIRE_API xf_error_t xf_server_socket_get_data(xf_server_socket_t *self, void **data);
+XROSSFIRE_API void xf_server_socket_set_data(xf_server_socket_t *self, void *data);
+XROSSFIRE_API void xf_server_socket_get_data(xf_server_socket_t *self, void **data);
 
 XROSSFIRE_API xf_error_t xf_socket_new(xf_socket_t **self);
-XROSSFIRE_API xf_error_t xf_socket_release(xf_socket_t *self);
+XROSSFIRE_API void xf_socket_release(xf_socket_t *self);
 
 #if defined(_WIN32)
 XROSSFIRE_API xf_error_t xf_socket_new_with_handle(SOCKET handle, xf_socket_t **self);

@@ -5,6 +5,7 @@
 typedef struct xf_socket
 {
 	SOCKET handle;
+    void *data;
 } xf_socket_t;
 
 static VOID WINAPI connect_phase1(
@@ -14,6 +15,48 @@ static VOID WINAPI connect_phase1(
 static xf_error_t socket_connect_async(
     xf_io_async_t *command,
     ADDRINFOEXW *addr);
+
+XROSSFIRE_API xf_error_t xf_socket_new(xf_socket_t **self)
+{
+    xf_error_t err;
+    xf_socket_t *obj = NULL;
+
+    obj = (xf_socket_t *)malloc(sizeof(xf_socket_t));
+    if (obj == NULL) {
+        err = xf_error_libc(errno);
+        goto _ERROR;
+    }
+
+    obj->handle = INVALID_SOCKET;
+    obj->data = NULL;
+
+    *self = obj;
+
+    return 0;
+_ERROR:
+    free(obj);
+
+    return err;
+}
+
+XROSSFIRE_API void xf_socket_release(xf_socket_t *self)
+{
+    if (self == NULL)
+        return;
+
+    closesocket(self->handle);
+    free(self);
+}
+
+XROSSFIRE_API void xf_socket_set_data(xf_socket_t *self, void *data)
+{
+    self->data = data;
+}
+
+XROSSFIRE_API void xf_socket_get_data(xf_socket_t *self, void **data)
+{
+    *data = self->data;
+}
 
 XROSSFIRE_API xf_error_t xf_socket_new_with_handle(SOCKET handle, xf_socket_t **self)
 {
@@ -27,6 +70,7 @@ XROSSFIRE_API xf_error_t xf_socket_new_with_handle(SOCKET handle, xf_socket_t **
 	}
 	
 	obj->handle = handle;
+    obj->data = NULL;
 	
 	*self = obj;
 	
