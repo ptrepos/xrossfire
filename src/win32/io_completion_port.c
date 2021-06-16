@@ -82,7 +82,7 @@ XROSSFIRE_API xf_error_t xf_io_set_max_workers(int max_workers)
     return 0;
 }
 
-XROSSFIRE_PRIVATE void xf_io_command_cancel(xf_io_command_t *self)
+XROSSFIRE_PRIVATE void xf_io_async_cancel(xf_io_async_t *self)
 {
 	CancelIoEx(self->handle, &self->head.overlapped);
 }
@@ -93,7 +93,7 @@ static void io_compiletion_main(PVOID pv)
     ULONG_PTR completion_key;
     LPOVERLAPPED overlapped = NULL;
     DWORD derr;
-    xf_io_command_t *command;
+    xf_io_async_t *command;
 
     xf_monitor_enter(&g_lock);
     g_current_workers++;
@@ -123,7 +123,7 @@ static void io_compiletion_main(PVOID pv)
             xf_monitor_leave(&g_lock);
             break;
         case XF_IO_TYPE_HANDLE:
-            command = (xf_io_command_t*)overlapped;
+            command = (xf_io_async_t*)overlapped;
             switch (command->io_type)
             {
             case XF_IO_SOCKET_CONNECT_PHASE2:
@@ -133,10 +133,10 @@ static void io_compiletion_main(PVOID pv)
                 xf_io_completed_socket_disconnect(derr, command);
                 break;
             case XF_IO_SOCKET_RECEIVE:
-                xf_io_completed_socket_receive(derr, command);
+                xf_io_completed_socket_receive(derr, transfered_bytes, command);
                 break;
             case XF_IO_SOCKET_SEND:
-                xf_io_completed_socket_send(derr, command);
+                xf_io_completed_socket_send(derr, transfered_bytes, command);
                 break;
             }
             break;
@@ -144,4 +144,21 @@ static void io_compiletion_main(PVOID pv)
     }
 _EXIT_WHILE:
     ;
+}
+
+XROSSFIRE_PRIVATE void xf_io_async_clear(xf_io_async_t *self)
+{
+    if (self == NULL)
+        return;
+
+    switch (self->io_type) {
+    case XF_IO_SOCKET_CONNECT_PHASE1:
+        FreeAddrInfoExW(self->context.connect.addrs);
+        closesocket((SOCKET)self->handle);
+        break;
+    case XF_IO_SOCKET_CONNECT_PHASE2:
+        FreeAddrInfoExW(self->context.connect.addrs);
+        closesocket((SOCKET)self->handle);
+        break;
+    }
 }

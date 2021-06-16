@@ -14,7 +14,7 @@
 #define XF_IO_SOCKET_RECEIVE	3
 #define XF_IO_SOCKET_SEND		4
 
-typedef struct xf_io_command
+typedef struct xf_io_async
 {
 	union {
 		OVERLAPPED overlapped;
@@ -39,16 +39,15 @@ typedef struct xf_io_command
 			int *transfered;
 		} send;
 	} context;
-	xf_async_t *async;
-} xf_io_command_t;
+} xf_io_async_t;
 
 XROSSFIRE_PRIVATE xf_error_t xf_io_completion_port_register(HANDLE handle);
 
-XROSSFIRE_PRIVATE void xf_async_set_command(xf_async_t *self, xf_io_command_t *command);
+XROSSFIRE_PRIVATE xf_io_async_t *xf_async_get_io_async(xf_async_t *self);
+XROSSFIRE_PRIVATE void xf_io_async_clear(xf_io_async_t *self);
+XROSSFIRE_PRIVATE void xf_io_async_cancel(xf_io_async_t *self);
 
-XROSSFIRE_PRIVATE void xf_io_command_cancel(xf_io_command_t *self);
-
-XROSSFIRE_PRIVATE void xf_io_completed_socket_connect_phase2(DWORD error, xf_io_command_t *command);
-XROSSFIRE_PRIVATE void xf_io_completed_socket_disconnect(DWORD error, xf_io_command_t *command);
-XROSSFIRE_PRIVATE void xf_io_completed_socket_receive(DWORD error, xf_io_command_t *command);
-XROSSFIRE_PRIVATE void xf_io_completed_socket_send(DWORD error, xf_io_command_t *command);
+XROSSFIRE_PRIVATE void xf_io_completed_socket_connect_phase2(DWORD error, xf_io_async_t *io_async);
+XROSSFIRE_PRIVATE void xf_io_completed_socket_disconnect(DWORD error, xf_io_async_t *io_async);
+XROSSFIRE_PRIVATE void xf_io_completed_socket_receive(DWORD error, DWORD transfered, xf_io_async_t *io_async);
+XROSSFIRE_PRIVATE void xf_io_completed_socket_send(DWORD error, DWORD transfered, xf_io_async_t *io_async);

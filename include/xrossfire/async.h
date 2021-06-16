@@ -22,7 +22,3 @@ XROSSFIRE_API void xf_async_release(xf_async_t *self);
 XROSSFIRE_API void xf_async_notify(xf_async_t *self, xf_error_t error);
 XROSSFIRE_API xf_error_t xf_async_cancel(xf_async_t *self);
 XROSSFIRE_API xf_error_t xf_async_wait(xf_async_t *self);
-
-#if defined(_WIN32)
-XROSSFIRE_API void xf_async_set_handle(xf_async_t *self, HANDLE handle);
-#endif

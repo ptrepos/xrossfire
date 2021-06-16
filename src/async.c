@@ -10,12 +10,12 @@
 
 struct xf_async
 {
+#if defined(_WIN32)
+	xf_io_async_t io_async;
+#endif
 	int type;
 	xf_timeout_t timeout;
 	xf_async_t *child_async;
-#if defined(_WIN32)
-	xf_io_command_t *command;
-#endif
 	union {
 		struct {
 			xf_async_completed_t completed;
@@ -86,6 +86,11 @@ XROSSFIRE_API xf_error_t xf_async_wait_new(int timeout, xf_async_t **self)
 	xf_monitor_init(&obj->u.wait.lock);
 	obj->u.wait.status = 0;
 	obj->u.wait.error = 0;
+
+#if defined(_WIN32)
+	memset(&obj->io_async, 0, sizeof(obj->io_async));
+	obj->io_async.handle = (HANDLE)INVALID_SOCKET;
+#endif
 	
 	if (timeout > 0) {
 		err = xf_timeout_schedule(&obj->timeout, timeout, async_timeout, obj);
@@ -123,6 +128,10 @@ XROSSFIRE_API void xf_async_release(xf_async_t *self)
 		xf_monitor_destroy(&self->u.wait.lock);
 		break;
 	}
+
+#if defined(_WIN32)
+	xf_io_async_clear(&self->io_async);
+#endif
 	
 	free(self);
 }
@@ -145,8 +154,9 @@ XROSSFIRE_API xf_error_t xf_async_wait(xf_async_t *self)
 static void _xf_async_async_notify(xf_async_t *self, xf_error_t error)
 {
 	self->u.async.completed(error, self->u.async.context);
-}
 
+	xf_async_release(self);
+}
 
 static void _xf_async_wait_notify(xf_async_t *self, xf_error_t error)
 {
@@ -183,8 +193,8 @@ static void _cancel(xf_async_t *self)
 	}
 
 #if defined(_WIN32)
-	if (self->command != NULL) {
-		xf_io_command_cancel(self->command);
+	if (self->io_async.handle != (HANDLE)INVALID_SOCKET) {
+		xf_io_async_cancel(&self->io_async);
 	}
 #endif
 }
@@ -217,8 +227,8 @@ static void async_timeout(void *context)
 }
 
 #if defined(_WIN32)
-XROSSFIRE_PRIVATE void xf_async_set_command(xf_async_t *self, xf_io_command_t *command)
+XROSSFIRE_PRIVATE xf_io_async_t *xf_async_get_io_async(xf_async_t *self)
 {
-	self->command = command;
+	return &self->io_async;
 }
 #endif

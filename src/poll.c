@@ -69,7 +69,7 @@ XROSSFIRE_API void xf_poll_loop()
 	xf_monitor_leave(&lock);
 }
 
-XROSSFIRE_API void xf_pollenter()
+XROSSFIRE_API void xf_poll_enter()
 {
 	xf_monitor_enter(&lock);
 }
