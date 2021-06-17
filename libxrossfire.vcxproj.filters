@@ -74,5 +74,8 @@
     <ClCompile Include="src\debug.c">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
+    <ClCompile Include="src\inet.c">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

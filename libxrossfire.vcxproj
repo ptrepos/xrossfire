@@ -161,6 +161,7 @@
     <ClCompile Include="src\async.c" />
     <ClCompile Include="src\debug.c" />
     <ClCompile Include="src\error.c" />
+    <ClCompile Include="src\inet.c" />
     <ClCompile Include="src\poll.c" />
     <ClCompile Include="src\strbuf.c" />
     <ClCompile Include="src\timeout.c" />

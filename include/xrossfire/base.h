@@ -179,9 +179,10 @@ typedef struct xf_string {
 #define _T(text)						L ## text
 #endif
 
-XROSSFIRE_API void __xf_debug_abort(const char *message);
+XROSSFIRE_API XF_NORETURN void __xf_debug_assert(const char *message);
+XROSSFIRE_API XF_NORETURN void __xf_debug_abort();
 
-#define xf_assert(expression)	if (expression) __xf_debug_abort(#expression)
-#define xf_abort(expression)	__xf_debug_abort("Abnormal terminate.")
+#define xf_assert(expression)	if (expression) __xf_debug_assert(#expression)
+#define xf_abort()	__xf_debug_abort()
 
 XF_END_EXTERN_C

@@ -172,6 +172,8 @@ static void _xf_async_wait_notify(xf_async_t *self, xf_error_t error)
 XROSSFIRE_API void xf_async_notify(xf_async_t *self, xf_error_t error)
 {
 	xf_error_t err;
+
+	xf_timeout_cancel(&self->timeout);
 	
 	switch (self->type) {
 	case XF_ASYNC_ASYNC:
@@ -202,10 +204,6 @@ static void _cancel(xf_async_t *self)
 XROSSFIRE_API xf_error_t xf_async_cancel(xf_async_t *self)
 {
 	xf_error_t err;
-	
-	err = xf_timeout_cancel(&self->timeout);
-	if (err != 0)
-		goto _ERROR;
 
 	_cancel(self);
 

@@ -11,6 +11,8 @@ struct xf_server_socket
     void *data;
 };
 
+XROSSFIRE_PRIVATE bool xf_inet_parse(xf_string_t *s, int *ip_type, /*out*/struct in_addr *in_addr, /*out*/struct in6_addr *in6_addr);
+
 #define RECEIVED_BUFFER_SIZE 	128
 
 XROSSFIRE_API xf_error_t xf_server_socket_new(
@@ -33,8 +35,12 @@ XROSSFIRE_API xf_error_t xf_server_socket_new(
     saddr6.sin6_family = AF_INET6;
     saddr6.sin6_port = htons(port);
 
-    ret = parse_ip_address(host, /*out*/&saddr4.sin_addr, /*out*/&saddr6.sin6_addr);
-    switch (ret) {
+    int ip_type;
+    if (xf_inet_parse(host, /*out*/&ip_type, /*out*/&saddr4.sin_addr, /*out*/&saddr6.sin6_addr) == false) {
+        err = XF_ERROR;
+        goto _ERROR;
+    }
+    switch (ip_type) {
     case XF_IPV4:
         address_family = AF_INET;
 
@@ -80,8 +86,7 @@ XROSSFIRE_API xf_error_t xf_server_socket_new(
         }
         break;
     default:
-        err = XF_ERROR;
-        goto _ERROR;
+        xf_abort();
     }
 
     ret = listen(listenfd, 5);
@@ -220,8 +225,6 @@ XROSSFIRE_PRIVATE void xf_io_completed_server_socket_accept(DWORD error, xf_io_a
     xf_error_t err;
 	xf_async_t *async = (xf_async_t*)io_async;
 	xf_socket_t *obj = NULL;
-	
-	xf_async_cancel_timeout(async);
 	
 	if (error != 0) {
 		err = xf_error_windows(error);

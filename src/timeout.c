@@ -71,7 +71,7 @@ XROSSFIRE_API xf_error_t xf_timeout_schedule(
 	return 0;
 }
 
-XROSSFIRE_API xf_error_t xf_timeout_cancel(xf_timeout_t *self)
+XROSSFIRE_API void xf_timeout_cancel(xf_timeout_t *self)
 {
 	xf_poll_enter();
 	
@@ -79,8 +79,6 @@ XROSSFIRE_API xf_error_t xf_timeout_cancel(xf_timeout_t *self)
 	xf_timeout_tree_remove(&tree, self->key, /*out*/&node);
 	
 	xf_poll_leave();
-
-	return 0;
 }
 
 static void xf_timeout_poll_procedure(int method_id, void *args)

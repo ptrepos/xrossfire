@@ -134,7 +134,7 @@ XROSSFIRE_API xf_error_t xf_error_libc(int error_num)
 	return XF_ERROR;
 }
 
-XROSSFIRE_API xf_error_t xf_error_windows(int error_num)
+XROSSFIRE_API xf_error_t xf_error_windows(DWORD error_num)
 {
 	return XF_ERROR;
 }
