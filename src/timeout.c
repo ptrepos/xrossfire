@@ -110,7 +110,7 @@ static void xf_timeout_poll_procedure(int method_id, void *args)
 				
 			xf_timeout_t *node = xf_timeout_tree_get_min(&tree);
 			
-			while (node->key.timestamp <= ticks) {
+			while (node != NULL && node->key.timestamp <= ticks) {
 				xf_timeout_tree_remove_min(&tree);
 				
 				xf_poll_leave();

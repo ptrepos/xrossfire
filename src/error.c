@@ -1,5 +1,4 @@
 #include <xrossfire/error.h>
-#include <xrossfire/string.h>
 
 struct xf_error_info
 {

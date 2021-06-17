@@ -42,20 +42,24 @@ XROSSFIRE_API xf_error_t xf_async_new(int timeout, xf_async_completed_t complete
 		err = xf_error_libc(errno);
 		goto _ERROR;
 	}
+
+	memset(obj, 0, sizeof(xf_async_t));
+	obj->io_async.handle = INVALID_HANDLE_VALUE;
 	
 	obj->type = XF_ASYNC_ASYNC;
+	obj->child_async = NULL;
 	obj->u.async.completed = completed;
 	obj->u.async.context = context;
+
+	if (parent != NULL) {
+		parent->child_async = obj;
+	}
 	
 	if (timeout > 0) {
-		err = xf_timeout_schedule(&obj->timeout, timeout, async_timeout, context);
+		err = xf_timeout_schedule(&obj->timeout, timeout, async_timeout, obj);
 		if (err != 0)
 			goto _ERROR;
 		timeout_setup = true;
-	}
-	
-	if (parent != NULL) {
-		parent->child_async = obj;
 	}
 	
 	*self = obj;
@@ -203,16 +207,9 @@ static void _cancel(xf_async_t *self)
 
 XROSSFIRE_API xf_error_t xf_async_cancel(xf_async_t *self)
 {
-	xf_error_t err;
-
 	_cancel(self);
 
-	xf_async_notify(self, XF_ERROR_CANCEL);
-
 	return 0;
-_ERROR:
-	
-	return err;
 }
 
 static void async_timeout(void *context)
@@ -220,8 +217,6 @@ static void async_timeout(void *context)
 	xf_async_t *async = (xf_async_t*)context;
 
 	_cancel(async);
-
-	xf_async_notify(async, XF_ERROR_CANCEL);
 }
 
 #if defined(_WIN32)

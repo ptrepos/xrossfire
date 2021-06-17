@@ -1,8 +1,7 @@
-#include <xrossfire/string.h>
 #include <xrossfire/net.h>
 #include "io_completion_port.h"
 
-struct xf_server_socket
+struct xf_tcp_server
 {
 	SOCKET socket;
 	int address_family;
@@ -13,19 +12,19 @@ struct xf_server_socket
 
 XROSSFIRE_PRIVATE bool xf_inet_parse(xf_string_t *s, int *ip_type, /*out*/struct in_addr *in_addr, /*out*/struct in6_addr *in6_addr);
 
-#define RECEIVED_BUFFER_SIZE 	128
+#define RECEIVED_BUFFER_SIZE 	((sizeof(struct sockaddr_in6) + 16) * 2)
 
-XROSSFIRE_API xf_error_t xf_server_socket_new(
+XROSSFIRE_API xf_error_t xf_tcp_server_new(
     xf_string_t *host,
     int port,
-    /*out*/xf_server_socket_t **self)
+    /*out*/xf_tcp_server_t **self)
 {
     xf_error_t err;
     SOCKET listenfd = INVALID_SOCKET;
     int ret;
     int yes = 1;
     int address_family = 0;
-    xf_server_socket_t *server_socket = NULL;
+    xf_tcp_server_t *server_socket = NULL;
     
     struct sockaddr_in saddr4;
     saddr4.sin_family = AF_INET;
@@ -40,6 +39,7 @@ XROSSFIRE_API xf_error_t xf_server_socket_new(
         err = XF_ERROR;
         goto _ERROR;
     }
+
     switch (ip_type) {
     case XF_IPV4:
         address_family = AF_INET;
@@ -95,7 +95,7 @@ XROSSFIRE_API xf_error_t xf_server_socket_new(
         goto _ERROR;
     }
 
-	server_socket = (xf_server_socket_t*)malloc(sizeof(xf_server_socket_t));
+	server_socket = (xf_tcp_server_t*)malloc(sizeof(xf_tcp_server_t));
     if (server_socket == NULL) {
         err = xf_error_libc(errno);
         goto _ERROR;
@@ -142,6 +142,8 @@ XROSSFIRE_API xf_error_t xf_server_socket_new(
     err = xf_io_completion_port_register((HANDLE)server_socket->socket);
     if (err != 0)
         goto _ERROR;
+
+    *self = server_socket;
     
     return 0;
 _ERROR:
@@ -151,8 +153,8 @@ _ERROR:
     return err;
 }
 
-XROSSFIRE_API void xf_server_socket_release(
-    xf_server_socket_t *self)
+XROSSFIRE_API void xf_tcp_server_release(
+    xf_tcp_server_t *self)
 {
     if (self == NULL)
         return;
@@ -161,19 +163,19 @@ XROSSFIRE_API void xf_server_socket_release(
     free(self);
 }
 
-XROSSFIRE_API void xf_server_socket_set_data(xf_server_socket_t *self, void *data)
+XROSSFIRE_API void xf_tcp_server_set_data(xf_tcp_server_t *self, void *data)
 {
     self->data = data;
 }
 
-XROSSFIRE_API void xf_server_socket_get_data(xf_server_socket_t *self, void **data)
+XROSSFIRE_API void xf_tcp_server_get_data(xf_tcp_server_t *self, void **data)
 {
     *data = self->data;
 }
 
-XROSSFIRE_API void xf_server_socket_accept(
-	xf_server_socket_t *self,
-	xf_socket_t **accepted_socket, 
+XROSSFIRE_API void xf_tcp_server_accept(
+	xf_tcp_server_t *self,
+	xf_tcp_socket_t **accepted_socket, 
 	xf_async_t *async)
 {
 	xf_error_t err;
@@ -191,6 +193,7 @@ XROSSFIRE_API void xf_server_socket_accept(
 	io_async = xf_async_get_io_async(async);
 	
     io_async->io_type = XF_IO_SERVER_SOCKET_ACCEPT;
+    io_async->handle = (HANDLE)self->socket;
     io_async->context.accept.self = self;
     io_async->context.accept.out_accepted_socket = accepted_socket;
     io_async->context.accept.accepted_socket = accepted_sock;
@@ -203,9 +206,11 @@ XROSSFIRE_API void xf_server_socket_accept(
 	
 	io_async->context.accept.buf = receive_buffer;
 
-    int addr_size = self->address_family == AF_INET6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+    int addr_size = (self->address_family == AF_INET6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in)) + 16;
     
-    ret = self->accept(self->socket, accepted_sock, io_async->context.accept.buf, 0, addr_size, addr_size, NULL, &io_async->head.overlapped);
+    DWORD received_bytes;
+    memset(&io_async->head.wsa_overlapped, 0, sizeof(io_async->head.wsa_overlapped));
+    ret = self->accept(self->socket, accepted_sock, io_async->context.accept.buf, 0, addr_size, addr_size, &received_bytes, &io_async->head.wsa_overlapped);
     if (ret == SOCKET_ERROR) {
         DWORD derr = WSAGetLastError();
         if (derr != WSA_IO_PENDING) {
@@ -216,7 +221,6 @@ XROSSFIRE_API void xf_server_socket_accept(
 
     return;
 _ERROR:
-    xf_io_async_clear(io_async);
 	xf_async_notify(async, err);
 }
 
@@ -224,18 +228,17 @@ XROSSFIRE_PRIVATE void xf_io_completed_server_socket_accept(DWORD error, xf_io_a
 {
     xf_error_t err;
 	xf_async_t *async = (xf_async_t*)io_async;
-	xf_socket_t *obj = NULL;
+	xf_tcp_socket_t *obj = NULL;
 	
 	if (error != 0) {
 		err = xf_error_windows(error);
-		xf_io_async_clear(io_async);
 		xf_async_notify(async, err);
 		return;
 	}
 	
-	xf_server_socket_t *server_socket = io_async->context.accept.self;
+	xf_tcp_server_t *server_socket = io_async->context.accept.self;
 
-    int addr_size = server_socket->address_family == AF_INET6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in);
+    int addr_size = (server_socket->address_family == AF_INET6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in)) + 16;
 
     SOCKADDR *local_addr, *remote_addr;
     int local_addr_len, remote_addr_len;
@@ -250,16 +253,14 @@ XROSSFIRE_PRIVATE void xf_io_completed_server_socket_accept(DWORD error, xf_io_a
     	&remote_addr_len
         );
 
-	err = xf_socket_new_with_handle(io_async->context.accept.accepted_socket, io_async->context.accept.out_accepted_socket);
+	err = xf_tcp_socket_new_with_handle(io_async->context.accept.accepted_socket, io_async->context.accept.out_accepted_socket);
 	if (err != 0)
 		goto _ERROR;
 	io_async->context.accept.accepted_socket = INVALID_SOCKET;
 	
-	xf_io_async_clear(io_async);
 	xf_async_notify(async, 0);
 	return ;
 _ERROR:
-	xf_io_async_clear(io_async);
 	xf_async_notify(async, err);
 	return ;
 }

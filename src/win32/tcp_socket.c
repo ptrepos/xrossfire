@@ -1,12 +1,11 @@
 #include <xrossfire/net.h>
-#include <xrossfire/string.h>
 #include "io_completion_port.h"
 
-typedef struct xf_socket
+typedef struct xf_tcp_socket
 {
 	SOCKET handle;
     void *data;
-} xf_socket_t;
+} xf_tcp_socket_t;
 
 static VOID WINAPI connect_phase1(
     _In_ DWORD Error,
@@ -16,12 +15,12 @@ static xf_error_t socket_connect_async(
     xf_io_async_t *command,
     ADDRINFOEXW *addr);
 
-XROSSFIRE_API xf_error_t xf_socket_new(xf_socket_t **self)
+XROSSFIRE_API xf_error_t xf_tcp_socket_new(xf_tcp_socket_t **self)
 {
     xf_error_t err;
-    xf_socket_t *obj = NULL;
+    xf_tcp_socket_t *obj = NULL;
 
-    obj = (xf_socket_t *)malloc(sizeof(xf_socket_t));
+    obj = (xf_tcp_socket_t *)malloc(sizeof(xf_tcp_socket_t));
     if (obj == NULL) {
         err = xf_error_libc(errno);
         goto _ERROR;
@@ -39,7 +38,7 @@ _ERROR:
     return err;
 }
 
-XROSSFIRE_API void xf_socket_release(xf_socket_t *self)
+XROSSFIRE_API void xf_tcp_socket_release(xf_tcp_socket_t *self)
 {
     if (self == NULL)
         return;
@@ -48,28 +47,32 @@ XROSSFIRE_API void xf_socket_release(xf_socket_t *self)
     free(self);
 }
 
-XROSSFIRE_API void xf_socket_set_data(xf_socket_t *self, void *data)
+XROSSFIRE_API void xf_tcp_socket_set_data(xf_tcp_socket_t *self, void *data)
 {
     self->data = data;
 }
 
-XROSSFIRE_API void xf_socket_get_data(xf_socket_t *self, void **data)
+XROSSFIRE_API void xf_tcp_socket_get_data(xf_tcp_socket_t *self, void **data)
 {
     *data = self->data;
 }
 
-XROSSFIRE_API xf_error_t xf_socket_new_with_handle(SOCKET handle, xf_socket_t **self)
+XROSSFIRE_API xf_error_t xf_tcp_socket_new_with_handle(SOCKET handle, xf_tcp_socket_t **self)
 {
 	xf_error_t err;
-	xf_socket_t *obj = NULL;
+	xf_tcp_socket_t *obj = NULL;
 	
-	obj = (xf_socket_t*)malloc(sizeof(xf_socket_t));
+	obj = (xf_tcp_socket_t*)malloc(sizeof(xf_tcp_socket_t));
 	if (obj == NULL) {
 		err = xf_error_libc(errno);
 		goto _ERROR;
 	}
-	
-	obj->handle = handle;
+
+    err = xf_io_completion_port_register((HANDLE)handle);
+    if (err != 0)
+        goto _ERROR;
+    
+    obj->handle = handle;
     obj->data = NULL;
 	
 	*self = obj;
@@ -81,8 +84,8 @@ _ERROR:
 	return err;
 }
 
-XROSSFIRE_API void xf_socket_connect(
-    xf_socket_t *self,
+XROSSFIRE_API void xf_tcp_socket_connect(
+    xf_tcp_socket_t *self,
     xf_string_t *hostname,
     int port,
     int options,
@@ -90,12 +93,15 @@ XROSSFIRE_API void xf_socket_connect(
 {
     xf_error_t err;
     ADDRINFOEX hints;
+    WCHAR port_buf[16];
     xf_io_async_t *io_async = NULL;
 
     if (self->handle != INVALID_SOCKET) {
         err = XF_ERROR;
         goto _ERROR;
     }
+
+    wsprintfW(port_buf, L"%d", port);
 
     ZeroMemory(&hints, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
@@ -107,14 +113,15 @@ XROSSFIRE_API void xf_socket_connect(
     io_async->io_type = XF_IO_SOCKET_CONNECT_PHASE1;
 	io_async->context.connect.self = self;
 
+    memset(&io_async->head.wsa_overlapped, 0, sizeof(io_async->head.wsa_overlapped));
     INT ierr = GetAddrInfoExW(xf_string_to_cstr(hostname),
-        NULL,
+        port_buf,
         NS_DNS,
         NULL,
         &hints,
         &io_async->context.connect.addrs,
         NULL,
-        &io_async->head.overlapped,
+        &io_async->head.wsa_overlapped,
         connect_phase1,
         &io_async->handle);
     if (ierr != WSA_IO_PENDING)
@@ -138,6 +145,8 @@ static VOID WINAPI connect_phase1(
     xf_error_t err;
     xf_io_async_t *io_async = (xf_io_async_t*)Overlapped;
 
+    io_async->handle = (HANDLE)INVALID_SOCKET;
+
     if (Error != 0) {
         err = xf_error_windows(Error);
         xf_async_notify((xf_async_t*)io_async, err);
@@ -160,6 +169,9 @@ static xf_error_t socket_connect_async(
 	BOOL bret;
 	SOCKET handle = INVALID_SOCKET;
 
+    while (addr != NULL && addr->ai_family != AF_INET)
+        addr = addr->ai_next;
+
 	handle = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
 	if (handle == INVALID_SOCKET) {
 		err = xf_error_windows(WSAGetLastError());
@@ -171,16 +183,26 @@ static xf_error_t socket_connect_async(
 		goto _ERROR;
 
 	{
-		struct sockaddr_in dummy_addr;
-		ZeroMemory(&dummy_addr, sizeof(dummy_addr));
-		dummy_addr.sin_family = addr->ai_family;
-		dummy_addr.sin_addr.s_addr = INADDR_ANY;
-		dummy_addr.sin_port = 0;
-		iret = bind(handle, (SOCKADDR *)&dummy_addr, sizeof(dummy_addr));
-		if (iret != 0) {
-			err = xf_error_windows(WSAGetLastError());
-			goto _ERROR;
-		}
+        if (addr->ai_family == AF_INET) {
+            struct sockaddr_in dummy_addr;
+            ZeroMemory(&dummy_addr, sizeof(dummy_addr));
+            dummy_addr.sin_family = AF_INET;
+            dummy_addr.sin_addr.s_addr = INADDR_ANY;
+            dummy_addr.sin_port = 0;
+            iret = bind(handle, (SOCKADDR *)&dummy_addr, sizeof(dummy_addr));
+            if (iret != 0) {
+                err = xf_error_windows(WSAGetLastError());
+                goto _ERROR;
+            }
+        } else if (addr->ai_family == AF_INET6) {
+            struct in6_addr addr = IN6ADDR_ANY_INIT;
+            struct sockaddr_in6 dummy_addr;
+            ZeroMemory(&dummy_addr, sizeof(dummy_addr));
+            dummy_addr.sin6_family = AF_INET6;
+            dummy_addr.sin6_addr = addr;
+            dummy_addr.sin6_port = 0;
+            iret = bind(handle, (SOCKADDR *)&dummy_addr, sizeof(dummy_addr));
+        }
 	}
 
 	DWORD numBytes = 0;
@@ -202,8 +224,10 @@ static xf_error_t socket_connect_async(
 	}
 
     io_async->io_type = XF_IO_SOCKET_CONNECT_PHASE2;
+    io_async->handle = handle;
 
-	bret = connect_ex(handle, addr->ai_addr, (int)addr->ai_addrlen, NULL, 0, NULL, &io_async->head.overlapped);
+    memset(&io_async->head.wsa_overlapped, 0, sizeof(io_async->head.wsa_overlapped));
+	bret = connect_ex(handle, addr->ai_addr, (int)addr->ai_addrlen, NULL, 0, NULL, &io_async->head.wsa_overlapped);
 	if (!bret) {
 		DWORD derr = WSAGetLastError();
 		if (derr != WSA_IO_PENDING) {
@@ -225,7 +249,6 @@ XROSSFIRE_PRIVATE void xf_io_completed_socket_connect_phase2(DWORD error, xf_io_
 
     if (error != 0) {
         err = xf_error_windows(error);
-        xf_io_async_clear(io_async);
         xf_async_notify((xf_async_t*)io_async, err);
         return;
     }
@@ -236,8 +259,8 @@ XROSSFIRE_PRIVATE void xf_io_completed_socket_connect_phase2(DWORD error, xf_io_
     xf_async_notify((xf_async_t *)io_async, 0);
 }
 
-XROSSFIRE_API void xf_socket_disconnect(
-    xf_socket_t *self,
+XROSSFIRE_API void xf_tcp_socket_disconnect(
+    xf_tcp_socket_t *self,
     xf_async_t *async)
 {
     xf_error_t err;
@@ -268,6 +291,7 @@ XROSSFIRE_API void xf_socket_disconnect(
     io_async->io_type = XF_IO_SOCKET_DISCONNECT;
     io_async->context.disconnect.self = self;
 
+    memset(&io_async->head.wsa_overlapped, 0, sizeof(io_async->head.wsa_overlapped));
     bret = disconnect_ex(self->handle, &io_async->head.overlapped, 0, 0);
     if (bret == FALSE) {
         err = xf_error_windows(GetLastError());
@@ -298,8 +322,8 @@ XROSSFIRE_PRIVATE void xf_io_completed_socket_disconnect(DWORD error, xf_io_asyn
     xf_async_notify((xf_async_t *)io_async, 0);
 }
 
-XROSSFIRE_API void xf_socket_receive(
-    xf_socket_t *self,
+XROSSFIRE_API void xf_tcp_socket_receive(
+    xf_tcp_socket_t *self,
     void *buffer,
     int length,
     /*out*/int *receive_length,
@@ -316,8 +340,9 @@ XROSSFIRE_API void xf_socket_receive(
     buf.buf = buffer;
     buf.len = length;
 
+    memset(&io_async->head.wsa_overlapped, 0, sizeof(io_async->head.wsa_overlapped));
     DWORD flags = 0;
-    int ret = WSARecv(self->handle, &buf, 1, NULL, &flags, &io_async->head.overlapped, NULL);
+    int ret = WSARecv(self->handle, &buf, 1, NULL, &flags, &io_async->head.wsa_overlapped, NULL);
     if (ret == SOCKET_ERROR) {
         DWORD derr = WSAGetLastError();
         if (derr != WSA_IO_PENDING) {
@@ -337,7 +362,6 @@ XROSSFIRE_PRIVATE void xf_io_completed_socket_receive(DWORD error, DWORD transfe
 
     if (error != 0) {
         err = xf_error_windows(error);
-        xf_io_async_clear(io_async);
         xf_async_notify((xf_async_t *)io_async, err);
         return;
     }
@@ -346,12 +370,11 @@ XROSSFIRE_PRIVATE void xf_io_completed_socket_receive(DWORD error, DWORD transfe
         *io_async->context.receive.transfered = (int)transfered;
     }
 
-    xf_io_async_clear(io_async);
     xf_async_notify((xf_async_t*)io_async, 0);
 }
 
-XROSSFIRE_API void xf_socket_send(
-    xf_socket_t *self,
+XROSSFIRE_API void xf_tcp_socket_send(
+    xf_tcp_socket_t *self,
     void *buffer,
     int length,
     /*out*/int *send_length,
@@ -360,7 +383,7 @@ XROSSFIRE_API void xf_socket_send(
     xf_error_t err;
     xf_io_async_t *io_async = xf_async_get_io_async(async);
 
-    io_async->io_type = XF_IO_SOCKET_RECEIVE;
+    io_async->io_type = XF_IO_SOCKET_SEND;
     io_async->handle = (HANDLE)self->handle;
     io_async->context.receive.transfered = send_length;
 
@@ -368,6 +391,7 @@ XROSSFIRE_API void xf_socket_send(
     buf.buf = buffer;
     buf.len = length;
 
+    memset(&io_async->head.wsa_overlapped, 0, sizeof(io_async->head.wsa_overlapped));
     DWORD flags = 0;
     int ret = WSASend(self->handle, &buf, 1, NULL, flags, &io_async->head.overlapped, NULL);
     if (ret == SOCKET_ERROR) {
@@ -389,7 +413,6 @@ XROSSFIRE_PRIVATE void xf_io_completed_socket_send(DWORD error, DWORD transfered
 
     if (error != 0) {
         err = xf_error_windows(error);
-        xf_io_async_clear(io_async);
         xf_async_notify((xf_async_t *)io_async, err);
         return;
     }
@@ -398,6 +421,5 @@ XROSSFIRE_PRIVATE void xf_io_completed_socket_send(DWORD error, DWORD transfered
         *io_async->context.receive.transfered = (int)transfered;
     }
 
-    xf_io_async_clear(io_async);
     xf_async_notify((xf_async_t *)io_async, 0);
 }

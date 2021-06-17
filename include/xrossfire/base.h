@@ -161,6 +161,11 @@ long long xf_ticks()
 #error "Not supported architecture."
 #endif
 
+typedef int xf_error_t;
+
+#define XF_ERROR		(1)
+#define XF_ERROR_CANCEL	(2)
+
 #if defined(_WIN32)
 typedef WCHAR	xf_char_t;
 #elif defined(__linux__) || define(__FreeBSD__)
@@ -173,11 +178,22 @@ typedef struct xf_string {
 	xf_char_t buf[];
 } const xf_string_t;
 
-#define XF_STRING_INITIALIZER(text)		{ -1, _countof(text), text }
+#define XF_STRING_INITIALIZER(text)		{ -1, _countof(text) - 1, text }
 
 #if defined(_WIN32)
 #define _T(text)						L ## text
 #endif
+
+XROSSFIRE_API xf_error_t xf_string_new(xf_char_t *chars, int length, xf_string_t **self);
+XROSSFIRE_API void xf_string_release(xf_string_t *self);
+XROSSFIRE_API xf_string_t *xf_string_add_ref(xf_string_t *self);
+XROSSFIRE_API int xf_string_get_ref(xf_string_t *self);
+
+XROSSFIRE_API const xf_char_t *xf_string_to_cstr(xf_string_t *self);
+XROSSFIRE_API int xf_string_get_length(xf_string_t *self);
+
+XROSSFIRE_API bool xf_string_equals(xf_string_t *self, xf_string_t *other);
+XROSSFIRE_API int xf_string_get_hashcode(xf_string_t *self);
 
 XROSSFIRE_API XF_NORETURN void __xf_debug_assert(const char *message);
 XROSSFIRE_API XF_NORETURN void __xf_debug_abort();

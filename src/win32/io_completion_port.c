@@ -4,7 +4,7 @@ static xf_monitor_t g_lock;
 static int g_max_workers = 8;
 static int g_current_workers;
 static bool g_exited = false;
-static HANDLE g_hIOCP = INVALID_HANDLE_VALUE;
+static HANDLE g_hIOCP = NULL;
 
 static xf_error_t prepare_thread();
 static void io_compiletion_main(PVOID pv);
@@ -16,7 +16,7 @@ XROSSFIRE_PRIVATE xf_error_t xf_io_completion_port_init()
     xf_monitor_init(&g_lock);
 
     HANDLE hIOCPTmp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, g_hIOCP, 0, g_max_workers);
-    if (hIOCPTmp == NULL) {
+    if (hIOCPTmp == INVALID_HANDLE_VALUE) {
         err = xf_error_windows(GetLastError());
         goto _ERROR;
     }
@@ -82,9 +82,16 @@ XROSSFIRE_API xf_error_t xf_io_set_max_workers(int max_workers)
     return 0;
 }
 
-XROSSFIRE_PRIVATE void xf_io_async_cancel(xf_io_async_t *self)
+XROSSFIRE_PRIVATE bool xf_io_async_cancel(xf_io_async_t *self)
 {
-	CancelIoEx(self->handle, &self->head.overlapped);
+	BOOL bret = CancelIoEx(self->handle, &self->head.wsa_overlapped);
+    if (bret == 0) {
+        return false;
+    }
+
+    self->handle = (HANDLE)INVALID_SOCKET;
+
+    return true;
 }
 
 static void io_compiletion_main(PVOID pv)
@@ -108,9 +115,6 @@ static void io_compiletion_main(PVOID pv)
             &completion_key,
             &overlapped,
             INFINITE);
-        if (!bRet) {
-            derr = GetLastError();
-        }
 
         switch (completion_key) {
         case XF_IO_TYPE_EXIT:
@@ -123,6 +127,9 @@ static void io_compiletion_main(PVOID pv)
             xf_monitor_leave(&g_lock);
             break;
         case XF_IO_TYPE_HANDLE:
+            if (!bRet) {
+                derr = WSAGetLastError();
+            }
             command = (xf_io_async_t*)overlapped;
             switch (command->io_type)
             {
@@ -137,6 +144,9 @@ static void io_compiletion_main(PVOID pv)
                 break;
             case XF_IO_SOCKET_SEND:
                 xf_io_completed_socket_send(derr, transfered_bytes, command);
+                break;
+            case XF_IO_SERVER_SOCKET_ACCEPT:
+                xf_io_completed_server_socket_accept(derr, command);
                 break;
             }
             break;

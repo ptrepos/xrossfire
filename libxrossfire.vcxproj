@@ -152,7 +152,6 @@
     <ClInclude Include="include\xrossfire\net.h" />
     <ClInclude Include="include\xrossfire\poll.h" />
     <ClInclude Include="include\xrossfire\strbuf.h" />
-    <ClInclude Include="include\xrossfire\string.h" />
     <ClInclude Include="include\xrossfire\timeout.h" />
     <ClInclude Include="src\avltree.h" />
     <ClInclude Include="src\win32\io_completion_port.h" />
@@ -164,10 +163,12 @@
     <ClCompile Include="src\inet.c" />
     <ClCompile Include="src\poll.c" />
     <ClCompile Include="src\strbuf.c" />
+    <ClCompile Include="src\string.c" />
     <ClCompile Include="src\timeout.c" />
     <ClCompile Include="src\win32\io_completion_port.c" />
-    <ClCompile Include="src\win32\server_socket.c" />
-    <ClCompile Include="src\win32\socket.c" />
+    <ClCompile Include="src\win32\tcp_server.c" />
+    <ClCompile Include="src\win32\tcp_socket.c" />
+    <ClCompile Include="test\main.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

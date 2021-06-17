@@ -4,9 +4,11 @@ static xf_monitor_t lock;
 static int n_pollings = 0;
 static xf_poll_procedure_t pollings[16];
 
-XROSSFIRE_PRIVATE xf_poll_init()
+XROSSFIRE_PRIVATE xf_error_t xf_poll_init()
 {
 	xf_monitor_init(&lock);
+
+	return 0;
 }
 
 static long long xf_poll_get_wait_timeout()
@@ -82,4 +84,16 @@ XROSSFIRE_API void xf_poll_leave()
 XROSSFIRE_API void xf_poll_wakeup()
 {
 	xf_monitor_notify(&lock);
+}
+
+static void xf_poll_thread_main(void *p)
+{
+	xf_poll_loop();
+}
+
+XROSSFIRE_API xf_error_t xf_poll_start()
+{
+	xf_thread_start(xf_poll_thread_main, NULL);
+
+	return 0;
 }

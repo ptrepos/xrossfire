@@ -13,7 +13,7 @@ XROSSFIRE_API XF_NORETURN void __xf_debug_assert(const char *text)
 	abort();
 }
 
-XROSSFIRE_API XF_NORETURN void __xf_debug_abort(const char *text)
+XROSSFIRE_API XF_NORETURN void __xf_debug_abort()
 {
 #if defined(_WIN32)
 	DebugBreak();

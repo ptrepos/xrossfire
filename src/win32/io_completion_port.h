@@ -26,22 +26,22 @@ typedef struct xf_io_async
 	union {
 		struct {
 			PADDRINFOEXW addrs;
-			xf_socket_t *self;
+			xf_tcp_socket_t *self;
 		} connect;
 		struct {
-			xf_socket_t *self;
+			xf_tcp_socket_t *self;
 		} disconnect;
 		struct {
-			xf_socket_t *self;
+			xf_tcp_socket_t *self;
 			int *transfered;
 		} receive;
 		struct {
-			xf_socket_t *self;
+			xf_tcp_socket_t *self;
 			int *transfered;
 		} send;
 		struct {
-			xf_socket_t **out_accepted_socket;
-			xf_server_socket_t *self;
+			xf_tcp_socket_t **out_accepted_socket;
+			xf_tcp_server_t *self;
 			SOCKET accepted_socket;
 			void *buf;
 		} accept;
@@ -52,7 +52,7 @@ XROSSFIRE_PRIVATE xf_error_t xf_io_completion_port_register(HANDLE handle);
 
 XROSSFIRE_PRIVATE xf_io_async_t *xf_async_get_io_async(xf_async_t *self);
 XROSSFIRE_PRIVATE void xf_io_async_clear(xf_io_async_t *self);
-XROSSFIRE_PRIVATE void xf_io_async_cancel(xf_io_async_t *self);
+XROSSFIRE_PRIVATE bool xf_io_async_cancel(xf_io_async_t *self);
 
 XROSSFIRE_PRIVATE void xf_io_completed_socket_connect_phase2(DWORD error, xf_io_async_t *io_async);
 XROSSFIRE_PRIVATE void xf_io_completed_socket_disconnect(DWORD error, xf_io_async_t *io_async);

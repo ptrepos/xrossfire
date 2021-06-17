@@ -21,9 +21,6 @@
     <ClInclude Include="include\xrossfire\net.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
-    <ClInclude Include="include\xrossfire\string.h">
-      <Filter>ヘッダー ファイル</Filter>
-    </ClInclude>
     <ClInclude Include="include\xrossfire\timeout.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
@@ -59,22 +56,28 @@
     <ClCompile Include="src\win32\io_completion_port.c">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\win32\socket.c">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="src\strbuf.c">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="src\poll.c">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
-    <ClCompile Include="src\win32\server_socket.c">
-      <Filter>ソース ファイル</Filter>
-    </ClCompile>
     <ClCompile Include="src\debug.c">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="src\inet.c">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\tcp_socket.c">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\win32\tcp_server.c">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\string.c">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="test\main.c">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>

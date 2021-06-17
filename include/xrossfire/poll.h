@@ -23,3 +23,5 @@ XROSSFIRE_API void xf_poll_loop();
 XROSSFIRE_API void xf_poll_enter();
 XROSSFIRE_API void xf_poll_leave();
 XROSSFIRE_API void xf_poll_wakeup();
+
+XROSSFIRE_API xf_error_t xf_poll_start();
