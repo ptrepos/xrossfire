@@ -26,24 +26,25 @@ typedef struct xf_io_async
 	union {
 		struct {
 			PADDRINFOEXW addrs;
-			xf_tcp_socket_t *self;
+			xf_socket_t *self;
 		} connect;
 		struct {
-			xf_tcp_socket_t *self;
+			xf_socket_t *self;
 		} disconnect;
 		struct {
-			xf_tcp_socket_t *self;
+			xf_socket_t *self;
 			int *transfered;
 		} receive;
 		struct {
-			xf_tcp_socket_t *self;
+			xf_socket_t *self;
 			int *transfered;
 		} send;
 		struct {
-			xf_tcp_socket_t **out_accepted_socket;
-			xf_tcp_server_t *self;
+			xf_socket_t **out_accepted_socket;
+			xf_server_socket_t *self;
 			SOCKET accepted_socket;
 			void *buf;
+			DWORD received_bytes;
 		} accept;
 	} context;
 } xf_io_async_t;

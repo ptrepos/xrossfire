@@ -1,30 +1,30 @@
 #include <xrossfire/net.h>
 #include "io_completion_port.h"
 
-struct xf_tcp_server
+typedef struct xf_tcp_server_socket_data
 {
 	SOCKET socket;
 	int address_family;
 	LPFN_ACCEPTEX accept;
 	LPFN_GETACCEPTEXSOCKADDRS get_accept_socket_addr;
-    void *data;
-};
+} xf_tcp_server_socket_data_t;
 
+XROSSFIRE_API xf_error_t xf_tcp_server_socket_procedure(xf_object_t *self, int message_id, void *args);
 XROSSFIRE_PRIVATE bool xf_inet_parse(xf_string_t *s, int *ip_type, /*out*/struct in_addr *in_addr, /*out*/struct in6_addr *in6_addr);
 
 #define RECEIVED_BUFFER_SIZE 	((sizeof(struct sockaddr_in6) + 16) * 2)
 
-XROSSFIRE_API xf_error_t xf_tcp_server_new(
+XROSSFIRE_API xf_error_t xf_server_socket_new(
     xf_string_t *host,
     int port,
-    /*out*/xf_tcp_server_t **self)
+    /*out*/xf_server_socket_t **self)
 {
     xf_error_t err;
     SOCKET listenfd = INVALID_SOCKET;
     int ret;
     int yes = 1;
     int address_family = 0;
-    xf_tcp_server_t *server_socket = NULL;
+    xf_server_socket_t *server_socket = NULL;
     
     struct sockaddr_in saddr4;
     saddr4.sin_family = AF_INET;
@@ -95,15 +95,15 @@ XROSSFIRE_API xf_error_t xf_tcp_server_new(
         goto _ERROR;
     }
 
-	server_socket = (xf_tcp_server_t*)malloc(sizeof(xf_tcp_server_t));
-    if (server_socket == NULL) {
-        err = xf_error_libc(errno);
+	err = xf_object_new(xf_tcp_server_socket_procedure, sizeof(xf_tcp_server_socket_data_t), &server_socket);
+    if (err != 0) {
         goto _ERROR;
     }
 
-    server_socket->socket = listenfd;
-    server_socket->address_family = address_family;
-    server_socket->data = NULL;
+    xf_tcp_server_socket_data_t *data = (xf_tcp_server_socket_data_t *)xf_object_get_body(server_socket);
+
+    data->socket = listenfd;
+    data->address_family = address_family;
 
     DWORD numBytes = 0;
     GUID guid = WSAID_ACCEPTEX;
@@ -112,8 +112,8 @@ XROSSFIRE_API xf_error_t xf_tcp_server_new(
         SIO_GET_EXTENSION_FUNCTION_POINTER,
         (void *)&guid,
         sizeof(guid),
-        (void *)&server_socket->accept,
-        sizeof(server_socket->accept),
+        (void *)&data->accept,
+        sizeof(data->accept),
         &numBytes,
         NULL,
         NULL);
@@ -129,8 +129,8 @@ XROSSFIRE_API xf_error_t xf_tcp_server_new(
         SIO_GET_EXTENSION_FUNCTION_POINTER,
         (void *)&guid2,
         sizeof(guid2),
-        (void *)&server_socket->get_accept_socket_addr,
-        sizeof(server_socket->get_accept_socket_addr),
+        (void *)&data->get_accept_socket_addr,
+        sizeof(data->get_accept_socket_addr),
         &numBytes,
         NULL,
         NULL);
@@ -139,7 +139,7 @@ XROSSFIRE_API xf_error_t xf_tcp_server_new(
         goto _ERROR;
     }
 
-    err = xf_io_completion_port_register((HANDLE)server_socket->socket);
+    err = xf_io_completion_port_register((HANDLE)data->socket);
     if (err != 0)
         goto _ERROR;
 
@@ -153,38 +153,24 @@ _ERROR:
     return err;
 }
 
-XROSSFIRE_API void xf_tcp_server_release(
-    xf_tcp_server_t *self)
+XROSSFIRE_API void xf_server_socket_release(
+    xf_server_socket_t *self)
 {
-    if (self == NULL)
-        return;
-
-    closesocket(self->socket);
-    free(self);
+    xf_object_release(self);
 }
 
-XROSSFIRE_API void xf_tcp_server_set_data(xf_tcp_server_t *self, void *data)
-{
-    self->data = data;
-}
-
-XROSSFIRE_API void xf_tcp_server_get_data(xf_tcp_server_t *self, void **data)
-{
-    *data = self->data;
-}
-
-XROSSFIRE_API void xf_tcp_server_accept(
-	xf_tcp_server_t *self,
-	xf_tcp_socket_t **accepted_socket, 
+static void __xf_server_socket_accept(
+	xf_server_socket_t *self,
+	xf_socket_t **accepted_socket, 
 	xf_async_t *async)
 {
 	xf_error_t err;
-    BOOL ret;
     SOCKET accepted_sock = INVALID_SOCKET;
     xf_io_async_t *io_async = NULL;
 	void *receive_buffer = NULL;
+    xf_tcp_server_socket_data_t *data = (xf_tcp_server_socket_data_t *)xf_object_get_body(self);
 
-    accepted_sock = socket(self->address_family, SOCK_STREAM, 0);
+    accepted_sock = socket(data->address_family, SOCK_STREAM, 0);
     if (accepted_sock == INVALID_SOCKET) {
         err = xf_error_windows(WSAGetLastError());
         goto _ERROR;
@@ -193,7 +179,7 @@ XROSSFIRE_API void xf_tcp_server_accept(
 	io_async = xf_async_get_io_async(async);
 	
     io_async->io_type = XF_IO_SERVER_SOCKET_ACCEPT;
-    io_async->handle = (HANDLE)self->socket;
+    io_async->handle = (HANDLE)data->socket;
     io_async->context.accept.self = self;
     io_async->context.accept.out_accepted_socket = accepted_socket;
     io_async->context.accept.accepted_socket = accepted_sock;
@@ -206,12 +192,11 @@ XROSSFIRE_API void xf_tcp_server_accept(
 	
 	io_async->context.accept.buf = receive_buffer;
 
-    int addr_size = (self->address_family == AF_INET6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in)) + 16;
+    int addr_size = (data->address_family == AF_INET6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in)) + 16;
     
-    DWORD received_bytes;
     memset(&io_async->head.wsa_overlapped, 0, sizeof(io_async->head.wsa_overlapped));
-    ret = self->accept(self->socket, accepted_sock, io_async->context.accept.buf, 0, addr_size, addr_size, &received_bytes, &io_async->head.wsa_overlapped);
-    if (ret == SOCKET_ERROR) {
+    BOOL bret = data->accept(data->socket, accepted_sock, io_async->context.accept.buf, 0, addr_size, addr_size, &io_async->context.accept.received_bytes, &io_async->head.wsa_overlapped);
+    if (!bret) {
         DWORD derr = WSAGetLastError();
         if (derr != WSA_IO_PENDING) {
             err = xf_error_windows(derr);
@@ -228,21 +213,21 @@ XROSSFIRE_PRIVATE void xf_io_completed_server_socket_accept(DWORD error, xf_io_a
 {
     xf_error_t err;
 	xf_async_t *async = (xf_async_t*)io_async;
-	xf_tcp_socket_t *obj = NULL;
+	xf_socket_t *obj = NULL;
 	
 	if (error != 0) {
 		err = xf_error_windows(error);
 		xf_async_notify(async, err);
 		return;
 	}
-	
-	xf_tcp_server_t *server_socket = io_async->context.accept.self;
 
-    int addr_size = (server_socket->address_family == AF_INET6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in)) + 16;
+    xf_tcp_server_socket_data_t *data = (xf_tcp_server_socket_data_t *)xf_object_get_body(io_async->context.accept.self);
+
+    int addr_size = (data->address_family == AF_INET6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in)) + 16;
 
     SOCKADDR *local_addr, *remote_addr;
     int local_addr_len, remote_addr_len;
-    server_socket->get_accept_socket_addr(
+    data->get_accept_socket_addr(
         io_async->context.accept.buf, 
         0,
         addr_size,
@@ -263,4 +248,45 @@ XROSSFIRE_PRIVATE void xf_io_completed_server_socket_accept(DWORD error, xf_io_a
 _ERROR:
 	xf_async_notify(async, err);
 	return ;
+}
+
+static xf_string_t CLASS_ID = XF_STRING_INITIALIZER(_T("xrossfire.net.TcpServerSocket"));
+
+XROSSFIRE_API xf_error_t xf_tcp_server_socket_procedure(xf_object_t *self, int message_id, void *args)
+{
+    xf_tcp_server_socket_data_t *data = (xf_tcp_server_socket_data_t *)xf_object_get_body(self);
+
+    switch (message_id) {
+    case XF_MESSAGE_OBJECT_QUERY_INTERFACE:
+    {
+        xf_object_query_interface_args_t *_args = (xf_object_query_interface_args_t *)args;
+        *_args->provides =
+            _args->interface_type == XF_INTERFACE_UNKNOWN ||
+            _args->interface_type == XF_INTERFACE_SERVER_SOCKET;
+        return 0;
+    }
+    case XF_MESSAGE_OBJECT_GET_CLASS_ID:
+    {
+        xf_object_get_class_id_args_t *_args = (xf_object_get_class_id_args_t *)args;
+        *_args->id = &CLASS_ID;
+        return 0;
+    }
+    case XF_MESSAGE_OBJECT_DESTROY:
+    {
+        if (data->socket != INVALID_SOCKET) {
+            closesocket(data->socket);
+            data->socket = INVALID_SOCKET;
+        }
+
+        return 0;
+    }
+    case XF_MESSAGE_SERVER_SOCKET_ACCEPT:
+    {
+        xf_server_socket_accept_args_t *_args = (xf_server_socket_accept_args_t *)args;
+        __xf_server_socket_accept(self, _args->accepted_socket, _args->async);
+        return 0;
+    }
+    }
+
+    return xf_object_default_procedure(self, message_id, args);
 }

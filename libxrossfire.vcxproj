@@ -150,6 +150,7 @@
     <ClInclude Include="include\xrossfire\base.h" />
     <ClInclude Include="include\xrossfire\error.h" />
     <ClInclude Include="include\xrossfire\net.h" />
+    <ClInclude Include="include\xrossfire\object.h" />
     <ClInclude Include="include\xrossfire\poll.h" />
     <ClInclude Include="include\xrossfire\strbuf.h" />
     <ClInclude Include="include\xrossfire\timeout.h" />
@@ -161,7 +162,9 @@
     <ClCompile Include="src\debug.c" />
     <ClCompile Include="src\error.c" />
     <ClCompile Include="src\inet.c" />
+    <ClCompile Include="src\object.c" />
     <ClCompile Include="src\poll.c" />
+    <ClCompile Include="src\netobj.c" />
     <ClCompile Include="src\strbuf.c" />
     <ClCompile Include="src\string.c" />
     <ClCompile Include="src\timeout.c" />

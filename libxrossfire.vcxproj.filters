@@ -42,6 +42,9 @@
     <ClInclude Include="include\xrossfire\poll.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="include\xrossfire\object.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\async.c">
@@ -78,6 +81,12 @@
       <Filter>ソース ファイル</Filter>
     </ClCompile>
     <ClCompile Include="test\main.c">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\object.c">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="src\netobj.c">
       <Filter>ソース ファイル</Filter>
     </ClCompile>
   </ItemGroup>

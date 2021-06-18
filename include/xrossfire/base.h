@@ -198,7 +198,7 @@ XROSSFIRE_API int xf_string_get_hashcode(xf_string_t *self);
 XROSSFIRE_API XF_NORETURN void __xf_debug_assert(const char *message);
 XROSSFIRE_API XF_NORETURN void __xf_debug_abort();
 
-#define xf_assert(expression)	if (expression) __xf_debug_assert(#expression)
+#define xf_assert(expression)	if (!(expression)) __xf_debug_assert(#expression)
 #define xf_abort()	__xf_debug_abort()
 
 XF_END_EXTERN_C

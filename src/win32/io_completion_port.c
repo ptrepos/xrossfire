@@ -163,10 +163,12 @@ XROSSFIRE_PRIVATE void xf_io_async_clear(xf_io_async_t *self)
 
     switch (self->io_type) {
     case XF_IO_SOCKET_CONNECT_PHASE1:
+        xf_object_release(self->context.connect.self);
         FreeAddrInfoExW(self->context.connect.addrs);
         closesocket((SOCKET)self->handle);
         break;
     case XF_IO_SOCKET_CONNECT_PHASE2:
+        xf_object_release(self->context.connect.self);
         FreeAddrInfoExW(self->context.connect.addrs);
         closesocket((SOCKET)self->handle);
         break;
