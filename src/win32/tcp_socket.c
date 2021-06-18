@@ -230,7 +230,7 @@ static xf_error_t socket_connect_async(
 	}
 
     io_async->io_type = XF_IO_SOCKET_CONNECT_PHASE2;
-    io_async->handle = handle;
+    io_async->handle = (HANDLE)handle;
 
     memset(&io_async->head.wsa_overlapped, 0, sizeof(io_async->head.wsa_overlapped));
 	bret = connect_ex(handle, addr->ai_addr, (int)addr->ai_addrlen, NULL, 0, NULL, &io_async->head.wsa_overlapped);
