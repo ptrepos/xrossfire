@@ -26,14 +26,20 @@ static void server_phase2(xf_error_t err, void *context);
 static void client_phase1(xf_error_t err, void *context);
 static void client_phase2(xf_error_t err, void *context);
 
+static void ssl_phase1(xf_error_t err, void *context);
+static void ssl_phase2(xf_error_t err, void *context);
+static void ssl_phase3(xf_error_t err, void *context);
+
 int main(int argc, char *argv[])
 {
 	xf_error_t err;
 	xf_async_t *async1 = NULL;
 	xf_async_t *async2 = NULL;
+	xf_async_t *async3 = NULL;
 	xf_server_socket_t *tcp_server = NULL;
 	server_async_context_t *server_context = (server_async_context_t *)malloc(sizeof(server_async_context_t));
 	client_async_context_t *client_context = (client_async_context_t *)malloc(sizeof(client_async_context_t));
+	client_async_context_t *ssl_context = (client_async_context_t *)malloc(sizeof(client_async_context_t));
 
 	WSADATA wsaData;
 	WSAStartup(MAKEWORD(2, 0), &wsaData);
@@ -69,8 +75,17 @@ int main(int argc, char *argv[])
 	err = xf_tcp_socket_new(&localhost, 11621, 0, &client_context->socket, async2);
 	if (err != 0)
 		goto _ERROR;
-	
-	fgetc(stdin);
+
+	err = xf_async_new(60 * 1000, ssl_phase1, ssl_context, NULL, &async3);
+	if (err != 0)
+		goto _ERROR;
+
+	xf_string_t sample = XF_STRING_INITIALIZER(_T("xxxxxxxxxxxx.net"));
+	err = xf_ssl_socket_new(&sample, 443, 0, &ssl_context->socket, async3);
+	if (err != 0)
+		goto _ERROR;
+
+	Sleep(60 * 1000);
 
 	xf_server_socket_release(tcp_server);
 	WSACleanup();
@@ -149,7 +164,7 @@ static void client_phase1(xf_error_t err, void *context)
 	strcpy_s(c->data, 1000, "ASYNC SOCKET SAMPLE xf_tcp_socket_t.");
 	int length = strlen(c->data);
 
-	xf_socket_send(c->socket, c->data, length, &c->length, async);
+	xf_socket_send(c->socket, c->data, length, async);
 
 	return;
 _ERROR:
@@ -171,4 +186,73 @@ static void client_phase2(xf_error_t err, void *context)
 	return;
 _ERROR:
 	free(c);
+}
+
+static void ssl_phase1(xf_error_t err, void *context)
+{
+	xf_async_t *async = NULL;
+
+	if (err != 0) {
+		printf("SSL CONNECT ERROR\n");
+		goto _ERROR;
+	}
+
+	printf("SSL CONNECTED\n");
+
+	client_async_context_t *c = (client_async_context_t *)context;
+
+	err = xf_async_new(10 * 1000, ssl_phase2, c, NULL, &async);
+	if (err != 0)
+		goto _ERROR;
+
+	strcpy_s(c->data, 1000, "GET /\r\n");
+	int length = strlen(c->data);
+
+	xf_socket_send(c->socket, c->data, length, async);
+	return;
+_ERROR:
+	free(context);
+	return;
+}
+
+static void ssl_phase2(xf_error_t err, void *context)
+{
+	xf_async_t *async = NULL;
+	client_async_context_t *c = (client_async_context_t *)context;
+
+	if (err != 0) {
+		printf("SSL SEND ERROR\n");
+		goto _ERROR;
+	}
+
+	printf("SSL SEND COMPLETED\n");
+
+	err = xf_async_new(10 * 1000, ssl_phase3, c, NULL, &async);
+	if (err != 0)
+		goto _ERROR;
+
+	xf_socket_receive(c->socket, c->data, sizeof(c->data), &c->length, async);
+	return;
+_ERROR:
+	free(context);
+	return;
+}
+
+static void ssl_phase3(xf_error_t err, void *context)
+{
+	xf_async_t *async = NULL;
+	client_async_context_t *c = (client_async_context_t *)context;
+
+	if (err != 0) {
+		printf("SSL RECEIVE ERROR\n");
+		goto _ERROR;
+	}
+
+	c->data[c->length] = 0;
+
+	printf("SSL RECEIVE COMPLETED %s\n", c->data);
+	return;
+_ERROR:
+	free(context);
+	return;
 }

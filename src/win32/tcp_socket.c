@@ -386,7 +386,6 @@ static void __xf_socket_send(
     xf_socket_t *self,
     void *buffer,
     int length,
-    /*out*/int *send_length,
     xf_async_t *async)
 {
     xf_error_t err;
@@ -394,7 +393,6 @@ static void __xf_socket_send(
 
     io_async->io_type = XF_IO_SOCKET_SEND;
     io_async->handle = (HANDLE)GET_HANDLE(self);
-    io_async->context.receive.transfered = send_length;
 
     WSABUF buf;
     buf.buf = buffer;
@@ -424,10 +422,6 @@ XROSSFIRE_PRIVATE void xf_io_completed_socket_send(DWORD error, DWORD transfered
         err = xf_error_windows(error);
         xf_async_notify((xf_async_t *)io_async, err);
         return;
-    }
-
-    if (io_async->context.receive.transfered != NULL) {
-        *io_async->context.receive.transfered = (int)transfered;
     }
 
     xf_async_notify((xf_async_t *)io_async, 0);
@@ -485,7 +479,7 @@ XROSSFIRE_API xf_error_t xf_tcp_socket_procedure(xf_object_t *self, int message_
     case XF_MESSAGE_SOCKET_SEND:
         {
             xf_socket_send_args_t *_args = (xf_socket_send_args_t *)args;
-            __xf_socket_send(self, _args->buffer, _args->length, _args->send_length, _args->async);
+            __xf_socket_send(self, _args->buffer, _args->length, _args->async);
             return 0;
         }
     }

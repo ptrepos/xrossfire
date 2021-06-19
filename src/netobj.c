@@ -42,13 +42,11 @@ XROSSFIRE_API void xf_socket_send(
 	xf_socket_t *self,
 	void *buffer,
 	int length,
-	/*out*/int *send_length,
 	xf_async_t *async)
 {
 	xf_socket_send_args_t args;
 	args.buffer = buffer;
 	args.length = length;
-	args.send_length = send_length;
 	args.async = async;
 
 	xf_object_call(self, XF_MESSAGE_SOCKET_SEND, &args);

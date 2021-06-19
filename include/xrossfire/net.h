@@ -33,7 +33,6 @@ typedef struct xf_socket_send_args
 {
 	byte *buffer;
 	int length;
-	int *send_length;
 	xf_async_t *async;
 } xf_socket_send_args_t;
 
@@ -84,5 +83,4 @@ XROSSFIRE_API void xf_socket_send(
 	xf_socket_t *self, 
 	void *buffer, 
 	int length, 
-	/*out*/int *send_length,
 	xf_async_t *async);
