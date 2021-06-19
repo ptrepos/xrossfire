@@ -125,11 +125,11 @@ XROSSFIRE_API void xf_async_release(xf_async_t *self)
 	if (self == NULL)
 		return;
 
+	xf_timeout_cancel(&self->timeout);
+
 	if (self->parent != NULL) {
 		self->parent->child_async = NULL;
 	}
-		
-	xf_timeout_cancel(&self->timeout);
 	
 	switch (self->type) {
 	case XF_ASYNC_ASYNC:

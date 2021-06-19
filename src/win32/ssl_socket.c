@@ -110,8 +110,6 @@ static void xf_ssl_socket_handshake_ph1(xf_error_t err, void *_context)
 
     xf_ssl_socket_handshake_ph2(context, true);
 
-    xf_ssl_socket_handshake_context_notify(context, 0);
-
     return;
 _ERROR:
     xf_ssl_socket_handshake_context_notify(context, err);
