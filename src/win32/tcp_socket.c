@@ -25,7 +25,7 @@ static xf_error_t socket_connect_async(
 
 XROSSFIRE_API xf_error_t xf_tcp_socket_procedure(xf_object_t *self, int message_id, void *args);
 
-XROSSFIRE_API xf_error_t xf_tcp_socket_new(
+XROSSFIRE_API void xf_tcp_socket_new(
     xf_string_t *hostname,
     int port,
     int options,
@@ -47,11 +47,10 @@ XROSSFIRE_API xf_error_t xf_tcp_socket_new(
 
     xf_socket_connect_tcp(obj, hostname, port, options, async);
 
-    return 0;
+    return ;
 _ERROR:
     xf_object_release(obj);
-
-    return err;
+    xf_async_notify(async, err);
 }
 
 XROSSFIRE_API xf_error_t xf_tcp_socket_new_with_handle(SOCKET handle, xf_socket_t **self)

@@ -72,18 +72,14 @@ int main(int argc, char *argv[])
 		goto _ERROR;
 
 	xf_string_t localhost = XF_STRING_INITIALIZER(_T("localhost"));
-	err = xf_tcp_socket_new(&localhost, 11621, 0, &client_context->socket, async2);
-	if (err != 0)
-		goto _ERROR;
+	xf_tcp_socket_new(&localhost, 11621, 0, &client_context->socket, async2);
 
 	err = xf_async_new(60 * 1000, ssl_phase1, ssl_context, NULL, &async3);
 	if (err != 0)
 		goto _ERROR;
 
-	xf_string_t sample = XF_STRING_INITIALIZER(_T("xxxxxxxxxxxx.net"));
-	err = xf_ssl_socket_new(&sample, 443, 0, &ssl_context->socket, async3);
-	if (err != 0)
-		goto _ERROR;
+	xf_string_t sample = XF_STRING_INITIALIZER(_T("svn.dachicraft.net"));
+	xf_ssl_socket_new(&sample, 443, 0, &ssl_context->socket, async3);
 
 	Sleep(60 * 1000);
 

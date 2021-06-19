@@ -15,6 +15,7 @@ struct xf_async
 #endif
 	int type;
 	xf_timeout_t timeout;
+	xf_async_t *parent;
 	xf_async_t *child_async;
 	union {
 		struct {
@@ -51,6 +52,7 @@ XROSSFIRE_API xf_error_t xf_async_new(int timeout, xf_async_completed_t complete
 	obj->u.async.completed = completed;
 	obj->u.async.context = context;
 
+	obj->parent = parent;
 	if (parent != NULL) {
 		parent->child_async = obj;
 	}
@@ -122,6 +124,10 @@ XROSSFIRE_API void xf_async_release(xf_async_t *self)
 {
 	if (self == NULL)
 		return;
+
+	if (self->parent != NULL) {
+		self->parent->child_async = NULL;
+	}
 		
 	xf_timeout_cancel(&self->timeout);
 	

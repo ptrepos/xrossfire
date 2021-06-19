@@ -51,13 +51,13 @@ XROSSFIRE_API void xf_server_socket_accept(
 	xf_socket_t **socket, 
 	xf_async_t *async);
 
-XROSSFIRE_API xf_error_t xf_tcp_socket_new(
+XROSSFIRE_API void xf_tcp_socket_new(
 	xf_string_t *hostname,
 	int port,
 	int options, 
 	xf_socket_t **self,
 	xf_async_t *async);
-XROSSFIRE_API xf_error_t xf_ssl_socket_new(
+XROSSFIRE_API void xf_ssl_socket_new(
 	xf_string_t *hostname,
 	int port,
 	int options,
