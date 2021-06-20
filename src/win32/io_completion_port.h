@@ -26,7 +26,7 @@ typedef struct xf_io_async
 	union {
 		struct {
 			PADDRINFOEXW addrs;
-			xf_socket_t *self;
+			xf_socket_t **self;
 		} connect;
 		struct {
 			xf_socket_t *self;

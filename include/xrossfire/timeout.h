@@ -28,4 +28,4 @@ XROSSFIRE_API xf_error_t xf_timeout_schedule(
 	int timeout, 
 	xf_timeout_procedure_t procedure, 
 	void *context);
-XROSSFIRE_API void xf_timeout_cancel(xf_timeout_t *self);
+XROSSFIRE_API bool xf_timeout_cancel(xf_timeout_t *self);

@@ -96,6 +96,8 @@ REDO:
     }
     case 1:
     {
+        xf_object_add_ref(context->base_socket);
+
         SCHANNEL_CRED sslCred = { 0 };
         sslCred.dwVersion = SCHANNEL_CRED_VERSION;
         sslCred.grbitEnabledProtocols = SP_PROT_TLS1_2_CLIENT;

@@ -23,6 +23,9 @@ XROSSFIRE_API void xf_async_notify(xf_async_t *self, xf_error_t error);
 XROSSFIRE_API xf_error_t xf_async_cancel(xf_async_t *self);
 XROSSFIRE_API xf_error_t xf_async_wait(xf_async_t *self);
 
+XROSSFIRE_API bool xf_async_enter(xf_async_t *self);
+XROSSFIRE_API void xf_async_leave(xf_async_t *self);
+
 typedef xf_error_t (*xf_async_procedure_t)(
 	xf_async_t *async,
 	int phase,
