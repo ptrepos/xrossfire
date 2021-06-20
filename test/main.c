@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
 	if (err != 0)
 		goto _ERROR;
 
-	xf_string_t sample = XF_STRING_INITIALIZER(_T("svn.dachicraft.net"));
+	xf_string_t sample = XF_STRING_INITIALIZER(_T("xxxxxxx"));
 	xf_ssl_socket_new(&sample, 443, 0, &ssl_context->socket, async3);
 
 	Sleep(60 * 1000);
@@ -97,6 +97,7 @@ _ERROR:
 static void server_phase1(xf_error_t err, void *context)
 {
 	xf_async_t *async = NULL;
+	server_async_context_t *c = (server_async_context_t *)context;
 
 	if (err != 0) {
 		printf("SERVER ACCEPT ERROR\n");
@@ -104,8 +105,6 @@ static void server_phase1(xf_error_t err, void *context)
 	}
 
 	printf("SERVER ACCEPTED\n");
-
-	server_async_context_t *c = (server_async_context_t *)context;
 
 	err = xf_async_new(10 * 1000, server_phase2, c, NULL, &async);
 	if (err != 0)
@@ -115,6 +114,7 @@ static void server_phase1(xf_error_t err, void *context)
 
 	return;
 _ERROR:
+	xf_socket_release(c->socket);
 	free(context);
 	return;
 }

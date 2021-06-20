@@ -3,6 +3,7 @@
 
 typedef struct xf_tcp_socket_data
 {
+    xf_monitor_t lock;
 	SOCKET handle;
 } xf_tcp_socket_data_t;
 
@@ -41,6 +42,7 @@ XROSSFIRE_API void xf_tcp_socket_new(
     }
 
     xf_tcp_socket_data_t *data = (xf_tcp_socket_data_t *)xf_object_get_body(obj);
+    xf_monitor_init(&data->lock);
     data->handle = INVALID_SOCKET;
 
     *self = obj;
@@ -68,6 +70,7 @@ XROSSFIRE_API xf_error_t xf_tcp_socket_new_with_handle(SOCKET handle, xf_socket_
     }
 
     xf_tcp_socket_data_t *data = (xf_tcp_socket_data_t *)xf_object_get_body(obj);
+    xf_monitor_init(&data->lock);
     data->handle = handle;
 
     *self = obj;
@@ -232,6 +235,7 @@ static xf_error_t socket_connect_async(
     io_async->handle = (HANDLE)handle;
 
     memset(&io_async->head.wsa_overlapped, 0, sizeof(io_async->head.wsa_overlapped));
+
 	bret = connect_ex(handle, addr->ai_addr, (int)addr->ai_addrlen, NULL, 0, NULL, &io_async->head.wsa_overlapped);
 	if (!bret) {
 		DWORD derr = WSAGetLastError();
@@ -299,14 +303,19 @@ static void __xf_socket_close(
     io_async->io_type = XF_IO_SOCKET_DISCONNECT;
     io_async->context.disconnect.self = self;
 
-    memset(&io_async->head.wsa_overlapped, 0, sizeof(io_async->head.wsa_overlapped));
-    bret = disconnect_ex(GET_HANDLE(self), &io_async->head.overlapped, 0, 0);
-    if (bret == FALSE) {
-        err = xf_error_windows(GetLastError());
-        goto _ERROR;
-    }
+    xf_tcp_socket_data_t *body = (xf_tcp_socket_data_t *)xf_object_get_body(self);
 
-    SET_HANDLE(self, INVALID_SOCKET);
+    memset(&io_async->head.wsa_overlapped, 0, sizeof(io_async->head.wsa_overlapped));
+    xf_monitor_enter(&body->lock);
+    bret = disconnect_ex(body->handle, &io_async->head.wsa_overlapped, 0, 0);
+    xf_monitor_leave(&body->lock);
+    if (bret == FALSE) {
+        DWORD derr = WSAGetLastError();
+        if (derr != ERROR_IO_PENDING) {
+            err = xf_error_windows(GetLastError());
+            goto _ERROR;
+        }
+    }
 
     return ;
 _ERROR:
@@ -318,8 +327,15 @@ XROSSFIRE_PRIVATE void xf_io_completed_socket_disconnect(DWORD error, xf_io_asyn
 {
     xf_error_t err;
 
-    closesocket(GET_HANDLE(io_async->context.disconnect.self));
-    SET_HANDLE(io_async->context.disconnect.self, INVALID_SOCKET);
+    xf_tcp_socket_data_t *body = (xf_tcp_socket_data_t *)xf_object_get_body(io_async->context.disconnect.self);
+
+    xf_monitor_enter(&body->lock);
+    closesocket(body->handle);
+    xf_monitor_leave(&body->lock);
+
+    body->handle = INVALID_SOCKET;
+
+    xf_monitor_destroy(&body->lock);
 
     if (error != 0) {
         err = xf_error_windows(error);
@@ -348,9 +364,15 @@ static void __xf_socket_receive(
     buf.buf = buffer;
     buf.len = length;
 
+    xf_tcp_socket_data_t *body = (xf_tcp_socket_data_t *)xf_object_get_body(self);
+
     memset(&io_async->head.wsa_overlapped, 0, sizeof(io_async->head.wsa_overlapped));
     DWORD flags = 0;
+
+    xf_monitor_enter(&body->lock);
     int ret = WSARecv(GET_HANDLE(self), &buf, 1, NULL, &flags, &io_async->head.wsa_overlapped, NULL);
+    xf_monitor_leave(&body->lock);
+
     if (ret == SOCKET_ERROR) {
         DWORD derr = WSAGetLastError();
         if (derr != WSA_IO_PENDING) {
@@ -397,9 +419,15 @@ static void __xf_socket_send(
     buf.buf = buffer;
     buf.len = length;
 
+    xf_tcp_socket_data_t *body = (xf_tcp_socket_data_t *)xf_object_get_body(self);
+
     memset(&io_async->head.wsa_overlapped, 0, sizeof(io_async->head.wsa_overlapped));
     DWORD flags = 0;
-    int ret = WSASend(GET_HANDLE(self), &buf, 1, NULL, flags, &io_async->head.overlapped, NULL);
+
+    xf_monitor_enter(&body->lock);
+    int ret = WSASend(body->handle, &buf, 1, NULL, flags, &io_async->head.overlapped, NULL);
+    xf_monitor_leave(&body->lock);
+
     if (ret == SOCKET_ERROR) {
         DWORD derr = WSAGetLastError();
         if (derr != WSA_IO_PENDING) {

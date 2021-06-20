@@ -29,6 +29,8 @@ typedef struct xf_ssl_socket_handshake_context
     xf_async_t *async;
     xf_socket_t *base_socket;
     xf_string_t *hostname;
+    int port;
+    int options;
     xf_socket_t **self;
 
     SECURITY_STATUS ss;
@@ -50,7 +52,6 @@ typedef struct xf_ssl_socket_handshake_context
 static void xf_ssl_socket_handshake_ph2(xf_ssl_socket_handshake_context_t *context, bool first);
 static void xf_ssl_socket_handshake_ph3(xf_error_t err, void *context);
 static void xf_ssl_socket_handshake_ph4(xf_error_t err, void *context);
-static void xf_ssl_socket_handshake_ph5(xf_error_t err, void *context);
 
 static void xf_ssl_socket_handshake_context_free(xf_ssl_socket_handshake_context_t *context)
 {
@@ -65,184 +66,174 @@ static void xf_ssl_socket_handshake_context_free(xf_ssl_socket_handshake_context
     free(context);
 }
 
-static void xf_ssl_socket_handshake_context_notify(xf_ssl_socket_handshake_context_t *context, xf_error_t err)
+//static void xf_ssl_socket_handshake_context_notify(xf_ssl_socket_handshake_context_t *context, xf_error_t err)
+//{
+//    xf_async_t *async = context->async;
+//
+//    xf_ssl_socket_handshake_context_free(context);
+//
+//    xf_async_notify(async, err);
+//}
+
+static xf_error_t xf_async_ssl_handshake_procedure(
+    xf_async_t *async,
+    int phase,
+    xf_error_t err,
+    void *context_,
+    /*out*/int *next_phase)
 {
-    xf_async_t *async = context->async;
-
-    xf_ssl_socket_handshake_context_free(context);
-
-    xf_async_notify(async, err);
-}
-
-static void xf_ssl_socket_handshake_ph1(xf_error_t err, void *_context)
-{
-    xf_async_t *async = NULL;
-    xf_ssl_socket_handshake_context_t *context = (xf_ssl_socket_handshake_context_t *)_context;
-
-    SCHANNEL_CRED sslCred = { 0 };
-    sslCred.dwVersion = SCHANNEL_CRED_VERSION;
-    sslCred.grbitEnabledProtocols = SP_PROT_TLS1_2_CLIENT;
-    sslCred.dwFlags =
-        SCH_CRED_NO_DEFAULT_CREDS |
-        SCH_CRED_MANUAL_CRED_VALIDATION;
-
-    TimeStamp tsExpiry;
-    SECURITY_STATUS ss;
-
-    ss = AcquireCredentialsHandle(
-        NULL,
-        UNISP_NAME,
-        SECPKG_CRED_OUTBOUND,
-        NULL,
-        &sslCred,
-        NULL, NULL, &context->hCredential, &tsExpiry);
-    if (ss != SEC_E_OK) {
-        err = XF_ERROR;
-        goto _ERROR;
-    }
-
-    context->ss = SEC_I_CONTINUE_NEEDED;
-    context->attrs = 0;
-
-    context->sec_buf_desc_in.cBuffers = 0;
-    context->sec_buf_desc_in.ulVersion = SECBUFFER_VERSION;
-    context->sec_buf_desc_in.pBuffers = NULL;
-
-    xf_ssl_socket_handshake_ph2(context, true);
-
-    return;
-_ERROR:
-    xf_ssl_socket_handshake_context_notify(context, err);
-    return;
-}
-
-static void xf_ssl_socket_handshake_ph2(xf_ssl_socket_handshake_context_t *context, bool first)
-{
-    xf_error_t err;
-    xf_async_t *async = NULL;
-
-    context->sec_buf_out[0].BufferType = SECBUFFER_TOKEN;
-    context->sec_buf_out[0].cbBuffer = 0;
-    context->sec_buf_out[0].pvBuffer = NULL;
-    context->sec_buf_desc_out.cBuffers = 1;
-    context->sec_buf_desc_out.ulVersion = SECBUFFER_VERSION;
-    context->sec_buf_desc_out.pBuffers = &context->sec_buf_out[0];
-
-    context->ss = InitializeSecurityContextW(
-        &context->hCredential,
-        first ? NULL : &context->hContext,
-        (WCHAR *)xf_string_to_cstr(context->hostname),
-        ISC_REQ_ALLOCATE_MEMORY,
-        0,
-        SECURITY_NETWORK_DREP,
-        &context->sec_buf_desc_in,
-        0,
-        &context->hContext,
-        &context->sec_buf_desc_out,
-        &context->attrs,
-        NULL);
-
-    if (FAILED(context->ss)) {
-        err = xf_error_windows(GetLastError());
-        goto _ERROR;
-    }
-
-    if (context->sec_buf_out[0].cbBuffer != 0) {
-        err = xf_async_new(30 * 1000, xf_ssl_socket_handshake_ph3, context, context->async, &async);
-        if (err != 0)
-            goto _ERROR;
-        xf_socket_send(
-            context->base_socket, 
-            context->sec_buf_out[0].pvBuffer, 
-            context->sec_buf_out[0].cbBuffer, 
-            async);
-    } else {
-        xf_ssl_socket_handshake_ph3(0, context);
-    }
-
-    return;
-_ERROR:
-    xf_ssl_socket_handshake_context_notify(context, err);
-    return;
-}
-
-static void xf_ssl_socket_handshake_ph3(xf_error_t err, void *_context)
-{
+    xf_ssl_socket_handshake_context_t *context = (xf_ssl_socket_handshake_context_t *)context_;
+    bool first = false;
     xf_object_t *obj = NULL;
-    xf_async_t *async = NULL;
-    xf_ssl_socket_handshake_context_t *context = (xf_ssl_socket_handshake_context_t *)_context;
 
-    if (err != 0)
-        goto _ERROR;
+REDO:
+    switch (phase) {
+    case 0:
+    {
+        xf_tcp_socket_new(context->hostname, context->port, context->options, &context->base_socket, async);
+        *next_phase = 1;
+        return 0;
+    }
+    case 1:
+    {
+        SCHANNEL_CRED sslCred = { 0 };
+        sslCred.dwVersion = SCHANNEL_CRED_VERSION;
+        sslCred.grbitEnabledProtocols = SP_PROT_TLS1_2_CLIENT;
+        sslCred.dwFlags =
+            SCH_CRED_NO_DEFAULT_CREDS |
+            SCH_CRED_MANUAL_CRED_VALIDATION;
 
-    FreeContextBuffer(context->sec_buf_out[0].pvBuffer);
-    context->sec_buf_out[0].pvBuffer = NULL;
+        TimeStamp tsExpiry;
+        SECURITY_STATUS ss;
 
-    if (context->ss == SEC_I_CONTINUE_NEEDED) {
-        if (context->sec_buf_in[0].pvBuffer == NULL) {
-            void *p = malloc(XF_SSL_HANDSHAKE_BUFFER_SIZE);
-            if (p == NULL) {
-                err = xf_error_libc(errno);
-                goto _ERROR;
-            }
-            context->sec_buf_in[0].pvBuffer = p;
+        ss = AcquireCredentialsHandle(
+            NULL,
+            UNISP_NAME,
+            SECPKG_CRED_OUTBOUND,
+            NULL,
+            &sslCred,
+            NULL, NULL, &context->hCredential, &tsExpiry);
+        if (ss != SEC_E_OK) {
+            err = XF_ERROR;
+            goto _ERROR;
         }
 
-        err = xf_async_new(10 * 1000, xf_ssl_socket_handshake_ph5, _context, context->async, &async);
-        if (err != 0)
+        context->ss = SEC_I_CONTINUE_NEEDED;
+        context->attrs = 0;
+
+        context->sec_buf_desc_in.cBuffers = 0;
+        context->sec_buf_desc_in.ulVersion = SECBUFFER_VERSION;
+        context->sec_buf_desc_in.pBuffers = NULL;
+
+        first = true;
+    }
+    case 2:
+    {
+        context->sec_buf_out[0].BufferType = SECBUFFER_TOKEN;
+        context->sec_buf_out[0].cbBuffer = 0;
+        context->sec_buf_out[0].pvBuffer = NULL;
+        context->sec_buf_desc_out.cBuffers = 1;
+        context->sec_buf_desc_out.ulVersion = SECBUFFER_VERSION;
+        context->sec_buf_desc_out.pBuffers = &context->sec_buf_out[0];
+
+        context->ss = InitializeSecurityContextW(
+            &context->hCredential,
+            first ? NULL : &context->hContext,
+            (WCHAR *)xf_string_to_cstr(context->hostname),
+            ISC_REQ_ALLOCATE_MEMORY,
+            0,
+            SECURITY_NETWORK_DREP,
+            &context->sec_buf_desc_in,
+            0,
+            &context->hContext,
+            &context->sec_buf_desc_out,
+            &context->attrs,
+            NULL);
+
+        if (FAILED(context->ss)) {
+            err = xf_error_windows(GetLastError());
             goto _ERROR;
+        }
 
-        xf_socket_receive(
-            context->base_socket,
-            context->sec_buf_in[0].pvBuffer,
-            XF_SSL_HANDSHAKE_BUFFER_SIZE,
-            &context->transfered_length,
-            async);
-    } else if (context->ss == SEC_E_OK) {
-        err = xf_object_new(xf_ssl_socket_procedure, sizeof(xf_ssl_socket_data_t), &obj);
-        if (err != 0)
-            goto _ERROR;
-        xf_ssl_socket_data_t *data = (xf_ssl_socket_data_t *)xf_object_get_body(obj);
+        if (context->sec_buf_out[0].cbBuffer != 0) {
+            xf_socket_send(
+                context->base_socket,
+                context->sec_buf_out[0].pvBuffer,
+                context->sec_buf_out[0].cbBuffer,
+                async);
+            *next_phase = 3;
+            return 0;
+        }
+    }
+    case 3:
+    {
+        if (context->sec_buf_out[0].pvBuffer != NULL) {
+            FreeContextBuffer(context->sec_buf_out[0].pvBuffer);
+            context->sec_buf_out[0].pvBuffer = NULL;
+        }
 
-        data->base_socket = context->base_socket;
-        data->hContext = context->hContext;
-        data->hCredential = context->hCredential;
-        data->received_buffer = NULL;
-        data->received_length = 0;
-        data->received_pos = 0;
+        if (context->ss == SEC_I_CONTINUE_NEEDED) {
+            if (context->sec_buf_in[0].pvBuffer == NULL) {
+                void *p = malloc(XF_SSL_HANDSHAKE_BUFFER_SIZE);
+                if (p == NULL) {
+                    err = xf_error_libc(errno);
+                    goto _ERROR;
+                }
+                context->sec_buf_in[0].pvBuffer = p;
+            }
 
-        context->base_socket = NULL;
-        *context->self = obj;
+            xf_socket_receive(
+                context->base_socket,
+                context->sec_buf_in[0].pvBuffer,
+                XF_SSL_HANDSHAKE_BUFFER_SIZE,
+                &context->transfered_length,
+                async);
+            *next_phase = 4;
+            return 0;
+        } else if (context->ss == SEC_E_OK) {
+            err = xf_object_new(xf_ssl_socket_procedure, sizeof(xf_ssl_socket_data_t), &obj);
+            if (err != 0)
+                goto _ERROR;
+            xf_ssl_socket_data_t *data = (xf_ssl_socket_data_t *)xf_object_get_body(obj);
 
-        xf_ssl_socket_handshake_context_notify(context, 0);
-    } else {
-        xf_abort();
+            data->base_socket = context->base_socket;
+            data->hContext = context->hContext;
+            data->hCredential = context->hCredential;
+            data->received_buffer = NULL;
+            data->received_length = 0;
+            data->received_pos = 0;
+
+            context->base_socket = NULL;
+            *context->self = obj;
+
+            xf_ssl_socket_handshake_context_free(context);
+
+            *next_phase = XF_ASYNC_PHASE_EXIT;
+            return 0;
+        } else {
+            xf_abort();
+        }
+    }
+    case 4:
+    {
+        context->sec_buf_in[0].BufferType = SECBUFFER_TOKEN;
+        context->sec_buf_in[0].cbBuffer = context->transfered_length;
+        context->sec_buf_desc_in.cBuffers = 1;
+        context->sec_buf_desc_in.ulVersion = SECBUFFER_VERSION;
+        context->sec_buf_desc_in.pBuffers = &context->sec_buf_in[0];
+
+        first = false;
+        phase = 2;
+        goto REDO;
+    }
+    case XF_ASYNC_PHASE_ERROR:
+        goto _ERROR;
     }
 
-    return;
+    xf_abort();
 _ERROR:
-    xf_object_release(obj);
-    xf_ssl_socket_handshake_context_notify(context, err);
-}
-
-static void xf_ssl_socket_handshake_ph5(xf_error_t err, void *_context)
-{
-    xf_ssl_socket_handshake_context_t *context = (xf_ssl_socket_handshake_context_t *)_context;
-
-    if (err != 0)
-        goto _ERROR;
-
-    context->sec_buf_in[0].BufferType = SECBUFFER_TOKEN;
-    context->sec_buf_in[0].cbBuffer = context->transfered_length;
-    context->sec_buf_desc_in.cBuffers = 1;
-    context->sec_buf_desc_in.ulVersion = SECBUFFER_VERSION;
-    context->sec_buf_desc_in.pBuffers = &context->sec_buf_in[0];
-
-    xf_ssl_socket_handshake_ph2(context, false);
-
-    return;
-_ERROR:
-    xf_ssl_socket_handshake_context_notify(context, err);
+    xf_ssl_socket_handshake_context_free(context);
+    return err;
 }
 
 XROSSFIRE_API void xf_ssl_socket_new(
@@ -264,14 +255,12 @@ XROSSFIRE_API void xf_ssl_socket_new(
     memset(context, 0, sizeof(xf_ssl_socket_handshake_context_t));
 
     context->hostname = hostname;
+    context->port = port;
+    context->options = options;
     context->async = async;
     context->self = self;
 
-    err = xf_async_new(30 * 1000, xf_ssl_socket_handshake_ph1, context, async, &async1);
-    if (err != 0)
-        goto _ERROR;
-
-    xf_tcp_socket_new(hostname, port, options, &context->base_socket, async1);
+    xf_async_call(30 * 1000, xf_async_ssl_handshake_procedure, context, async);
 
     return;
 _ERROR:
@@ -304,7 +293,6 @@ typedef struct xf_ssl_receive_context
 
 static void copy_from_buffer(xf_ssl_socket_data_t *body, byte *buffer, int length, int *receive_length, xf_async_t *async);
 static void xf_ssl_socket_receive_ph1(xf_ssl_receive_context_t *context);
-static void xf_ssl_socket_receive_phase2(xf_error_t err, void *context);
 static void xf_ssl_socket_receive_ph2(xf_error_t err, void *context);
 
 static void __xf_socket_receive(
@@ -467,7 +455,6 @@ typedef struct xf_ssl_send_context
 } xf_ssl_send_context_t;
 
 static void xf_ssl_socket_send_ph1(xf_ssl_send_context_t *context);
-static void xf_ssl_socket_send_ph2(xf_error_t err, void *context);
 static void xf_ssl_socket_send_ph2(xf_error_t err, void *context);
 
 static void __xf_socket_send(
